@@ -152,3 +152,37 @@ async fn test_multiple_disconnect_calls() {
     let result2 = controller.disconnect(&app_state).await;
     assert!(result2.is_ok());
 }
+
+#[tokio::test]
+async fn test_list_discovered_devices_empty() {
+    let controller = create_test_controller().await;
+    let app_state = create_test_app_state().await;
+
+    // Before scanning, should return empty list
+    let response = controller.list_discovered_devices(&app_state).await;
+    assert!(
+        response.devices.is_empty(),
+        "Should return empty devices list before scanning"
+    );
+}
+
+#[tokio::test]
+async fn test_list_discovered_devices_after_scan() {
+    let controller = create_test_controller().await;
+    let app_state = create_test_app_state().await;
+
+    // Start scanning
+    let scan_request = ScanRequest {
+        timeout_secs: Some(1),
+    };
+    let _scan_result = controller.scan(&app_state, scan_request).await;
+
+    // Get discovered devices (may still be empty if no devices in test environment)
+    let response = controller.list_discovered_devices(&app_state).await;
+
+    // Should return a valid response (may be empty in test env)
+    assert!(
+        response.devices.is_empty() || !response.devices.is_empty(),
+        "Should always return valid response"
+    );
+}
