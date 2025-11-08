@@ -190,7 +190,7 @@ impl VentService {
     }
 
     /// Parse device status response and convert to VentStatus
-    fn parse_device_status(&self, response: &str) -> VentStatus {
+    pub fn parse_device_status(&self, response: &str) -> VentStatus {
         let lower = response.to_lowercase();
         if lower.contains("open") {
             VentStatus::Open
@@ -202,4 +202,9 @@ impl VentService {
             VentStatus::Disconnected
         }
     }
+}
+
+#[cfg(test)]
+mod vent_service_tests {
+    include!("vent_service_tests.rs");
 }
