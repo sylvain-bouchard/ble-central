@@ -188,3 +188,8 @@ impl VentApiController {
         })
     }
 }
+
+#[cfg(test)]
+mod vent_controller_tests {
+    include!("vent_controller_tests.rs");
+}
