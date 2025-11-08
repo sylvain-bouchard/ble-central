@@ -16,7 +16,7 @@ pub fn build_router(state: ApplicationState) -> Router {
         // BLE operations
         .route("/api/ble/scan", post(ble_scan))
         .route("/api/ble/stop-scan", post(ble_stop_scan))
-        .route("/api/ble/connect/:device_id", post(ble_connect))
+        .route("/api/ble/connect/{device_id}", post(ble_connect))
         // Vent operations
         .route("/api/vent/open", post(open_vent))
         .route("/api/vent/close", post(close_vent))
