@@ -6,8 +6,8 @@ use axum::{
 };
 
 use super::vent_controller::{
-    ConnectRequest, ConnectResponse, ErrorResponse, MessageResponse, ScanRequest,
-    VentStatusResponse,
+    ConnectRequest, ConnectResponse, DiscoveredDevicesResponse, ErrorResponse, MessageResponse,
+    ScanRequest, VentStatusResponse,
 };
 use crate::state::ApplicationState;
 
@@ -16,6 +16,7 @@ pub fn build_router(state: ApplicationState) -> Router {
         // BLE operations
         .route("/api/ble/scan", post(ble_scan))
         .route("/api/ble/stop-scan", post(ble_stop_scan))
+        .route("/api/ble/devices", get(ble_devices))
         .route("/api/ble/connect/{device_id}", post(ble_connect))
         // Vent operations
         .route("/api/vent/open", post(open_vent))
@@ -103,4 +104,14 @@ async fn vent_disconnect(
         .await
         .map(Json)
         .map_err(|(code, err)| (code, Json(err)))
+}
+
+/// Get list of discovered BLE devices
+async fn ble_devices(State(state): State<ApplicationState>) -> Json<DiscoveredDevicesResponse> {
+    Json(
+        state
+            .vent_api_controller
+            .list_discovered_devices(&state)
+            .await,
+    )
 }

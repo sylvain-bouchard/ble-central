@@ -2,7 +2,6 @@ use crate::domain::vent::vent::VentStatus;
 use crate::services::ble_service::BleService;
 use btleplug::platform::{Adapter, Peripheral};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 
 // BLE Characteristic UUIDs
@@ -12,9 +11,9 @@ const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status char
 pub struct VentService {
     ble_service: BleService,
     scanning_adapter: Arc<Mutex<Option<Adapter>>>,
-    device_rx: Arc<Mutex<Option<mpsc::Receiver<String>>>>,
     connected_device: Arc<Mutex<Option<Peripheral>>>,
     vent_status: Arc<Mutex<VentStatus>>,
+    discovered_devices: Arc<Mutex<Vec<String>>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -32,9 +31,9 @@ impl VentService {
         VentService {
             ble_service,
             scanning_adapter: Arc::new(Mutex::new(None)),
-            device_rx: Arc::new(Mutex::new(None)),
             connected_device: Arc::new(Mutex::new(None)),
             vent_status: Arc::new(Mutex::new(VentStatus::Disconnected)),
+            discovered_devices: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -47,7 +46,18 @@ impl VentService {
         let rx = self.ble_service.start_scan(&adapter).await?;
 
         *self.scanning_adapter.lock().await = Some(adapter);
-        *self.device_rx.lock().await = Some(rx);
+
+        // Spawn a task to collect discovered devices
+        let discovered_devices = Arc::clone(&self.discovered_devices);
+        tokio::spawn(async move {
+            let mut rx = rx;
+            while let Some(device_id) = rx.recv().await {
+                let mut devices = discovered_devices.lock().await;
+                if !devices.contains(&device_id) {
+                    devices.push(device_id);
+                }
+            }
+        });
 
         Ok(())
     }
@@ -201,6 +211,11 @@ impl VentService {
         } else {
             VentStatus::Disconnected
         }
+    }
+
+    /// Get list of discovered devices
+    pub async fn get_discovered_devices(&self) -> Vec<String> {
+        self.discovered_devices.lock().await.clone()
     }
 }
 

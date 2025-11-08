@@ -34,6 +34,11 @@ pub struct VentStatusResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoveredDevicesResponse {
+    pub devices: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub error: String,
 }
@@ -186,6 +191,15 @@ impl VentApiController {
             status: "stopped".to_string(),
             message: "BLE scanning stopped".to_string(),
         })
+    }
+
+    /// Get list of discovered BLE devices
+    pub async fn list_discovered_devices(
+        &self,
+        state: &ApplicationState,
+    ) -> DiscoveredDevicesResponse {
+        let devices = state.vent_service.get_discovered_devices().await;
+        DiscoveredDevicesResponse { devices }
     }
 }
 
