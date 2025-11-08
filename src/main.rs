@@ -1,20 +1,28 @@
 use std::error::Error;
 use std::sync::Arc;
 
+use api::vent::vent_controller::VentApiController;
 use api::vent::vent_routes::build_router;
-use domain::vent::controller::VentController;
+use services::ble_service::BleService;
+use services::vent_service::VentService;
 use state::ApplicationState;
 
 mod api;
 mod domain;
+mod services;
 mod state;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let vent = Arc::new(VentController::new());
-    let application_state = ApplicationState { vent };
+    let ble_service = BleService::new().await;
+    let vent_service = Arc::new(VentService::new(ble_service));
+    let vent_api_controller = Arc::new(VentApiController::new());
 
-    // give the compiler an explicit type for FromStr
+    let application_state = ApplicationState {
+        vent_service,
+        vent_api_controller,
+    };
+
     let address: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
 
     let listener = tokio::net::TcpListener::bind(address).await?;

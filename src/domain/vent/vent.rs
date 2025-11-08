@@ -1,5 +1,7 @@
-#[derive(Clone, Copy, serde::Serialize)]
-pub enum VentState {
+#[derive(Clone, Debug)]
+pub enum VentStatus {
+    Disconnected,
+    Connected,
     Open,
     Closed,
 }

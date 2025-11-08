@@ -1,29 +1,106 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
+    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
 
-use crate::{domain::vent::vent::VentState, state::ApplicationState};
+use super::vent_controller::{
+    ConnectRequest, ConnectResponse, ErrorResponse, MessageResponse, ScanRequest,
+    VentStatusResponse,
+};
+use crate::state::ApplicationState;
 
 pub fn build_router(state: ApplicationState) -> Router {
     Router::new()
-        .route("/vent/open", post(open_vent))
-        .route("/vent/close", post(close_vent))
-        .route("/vent/status", get(vent_status))
+        // BLE operations
+        .route("/api/ble/scan", post(ble_scan))
+        .route("/api/ble/stop-scan", post(ble_stop_scan))
+        .route("/api/ble/connect/:device_id", post(ble_connect))
+        // Vent operations
+        .route("/api/vent/open", post(open_vent))
+        .route("/api/vent/close", post(close_vent))
+        .route("/api/vent/status", get(vent_status))
+        .route("/api/vent/disconnect", post(vent_disconnect))
         .with_state(state)
 }
 
-async fn open_vent(State(state): State<ApplicationState>) -> &'static str {
-    state.vent.open();
-    "Vent opened"
+/// Initialize BLE scanning
+async fn ble_scan(
+    State(state): State<ApplicationState>,
+    Json(payload): Json<ScanRequest>,
+) -> Result<Json<MessageResponse>, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .vent_api_controller
+        .scan(&state, payload)
+        .await
+        .map(Json)
+        .map_err(|(code, err)| (code, Json(err)))
 }
 
-async fn close_vent(State(state): State<ApplicationState>) -> &'static str {
-    state.vent.close();
-    "Vent closed"
+/// Stop BLE scanning
+async fn ble_stop_scan(
+    State(state): State<ApplicationState>,
+) -> Result<Json<MessageResponse>, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .vent_api_controller
+        .stop_scan(&state)
+        .await
+        .map(Json)
+        .map_err(|(code, err)| (code, Json(err)))
 }
 
-async fn vent_status(State(state): State<ApplicationState>) -> Json<VentState> {
-    Json(state.vent.status())
+/// Connect to a discovered BLE device
+async fn ble_connect(
+    State(state): State<ApplicationState>,
+    Path(device_id): Path<String>,
+    Json(payload): Json<ConnectRequest>,
+) -> Result<Json<ConnectResponse>, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .vent_api_controller
+        .connect(&state, device_id, payload)
+        .await
+        .map(Json)
+        .map_err(|(code, err)| (code, Json(err)))
+}
+
+/// Open the vent via BLE
+async fn open_vent(
+    State(state): State<ApplicationState>,
+) -> Result<Json<MessageResponse>, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .vent_api_controller
+        .open(&state)
+        .await
+        .map(Json)
+        .map_err(|(code, err)| (code, Json(err)))
+}
+
+/// Close the vent via BLE
+async fn close_vent(
+    State(state): State<ApplicationState>,
+) -> Result<Json<MessageResponse>, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .vent_api_controller
+        .close(&state)
+        .await
+        .map(Json)
+        .map_err(|(code, err)| (code, Json(err)))
+}
+
+/// Get current vent status
+async fn vent_status(State(state): State<ApplicationState>) -> Json<VentStatusResponse> {
+    Json(state.vent_api_controller.status(&state).await)
+}
+
+/// Disconnect from the device
+async fn vent_disconnect(
+    State(state): State<ApplicationState>,
+) -> Result<Json<MessageResponse>, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .vent_api_controller
+        .disconnect(&state)
+        .await
+        .map(Json)
+        .map_err(|(code, err)| (code, Json(err)))
 }
