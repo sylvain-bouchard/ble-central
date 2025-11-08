@@ -159,3 +159,8 @@ impl BleService {
         ))))
     }
 }
+
+#[cfg(test)]
+mod ble_service_tests {
+    include!("ble_service_tests.rs");
+}
