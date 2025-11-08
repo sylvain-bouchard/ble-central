@@ -1,0 +1,24 @@
+@apiUrl = http://localhost:8080
+
+### Start BLE scan
+
+POST {{apiUrl}}/api/ble/scan
+Content-Type: application/json
+
+{
+  "timeout_secs": 10
+}
+
+
+### Check device availability
+
+GET {{apiUrl}}/api/vent/status
+
+
+### Connect to BLE device
+POST {{apiUrl}}/api/ble/connect/{device_id}
+Content-Type: application/json
+
+{
+  "timeout_secs": 10
+}
