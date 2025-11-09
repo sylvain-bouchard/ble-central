@@ -1,10 +1,10 @@
 # Build stage
-FROM rust:1.79-buster as builder
+FROM rust:1.91-slim-bullseye as builder
 
-RUN apt-get update && apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav libgstrtspserver-1.0-dev libges-1.0-dev
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libdbus-1-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -16,12 +16,23 @@ RUN cargo build --release
 
 
 # Production stage
-FROM debian:buster-slim
+FROM debian:bullseye-slim
+
+RUN apt-get update && apt-get install -y \
+    libdbus-1-3 \
+    dbus \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/bin
 
-COPY --from=builder /app/target/release/capture-api .
+COPY --from=builder /app/target/release/ble-central-gateway .
 
-EXPOSE 3000
+EXPOSE 8080
 
-CMD ["./capture-api"]
+# Note: To run this container with Bluetooth access, use:
+# docker run --privileged --network host \
+#   -v /run/dbus:/run/dbus \
+#   -v /var/run/dbus:/var/run/dbus \
+#   ble-central-gateway
+
+CMD ["./ble-central-gateway"]
