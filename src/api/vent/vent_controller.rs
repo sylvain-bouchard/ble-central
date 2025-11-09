@@ -12,7 +12,6 @@ pub struct ScanRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConnectRequest {
-    pub device_id: String,
     pub timeout_secs: Option<u64>,
 }
 
