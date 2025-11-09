@@ -104,7 +104,6 @@ async fn test_connect_invalid_device() {
 
     // Try to connect to non-existent device
     let request = ConnectRequest {
-        device_id: "invalid_device_id".to_string(),
         timeout_secs: Some(1),
     };
 
