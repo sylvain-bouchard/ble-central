@@ -10,6 +10,10 @@ Content-Type: application/json
 }
 
 
+### List discovered BLE devices
+GET {{apiUrl}}/api/ble/devices
+
+
 ### Check device availability
 
 GET {{apiUrl}}/api/vent/status
