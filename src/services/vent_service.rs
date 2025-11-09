@@ -1,6 +1,7 @@
 use crate::domain::vent::vent::VentStatus;
 use crate::services::ble_service::BleService;
 use btleplug::platform::{Adapter, Peripheral};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -8,12 +9,19 @@ use tokio::sync::Mutex;
 const CONTROL_UUID: &str = "0000180a-0000-1000-8000-00805f9b34fb"; // Control characteristic
 const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic (read responses)
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DiscoveredDevice {
+    pub id: String,
+    pub address: Option<String>,
+    pub name: Option<String>,
+}
+
 pub struct VentService {
     ble_service: BleService,
     scanning_adapter: Arc<Mutex<Option<Adapter>>>,
     connected_device: Arc<Mutex<Option<Peripheral>>>,
     vent_status: Arc<Mutex<VentStatus>>,
-    discovered_devices: Arc<Mutex<Vec<String>>>,
+    discovered_devices: Arc<Mutex<Vec<DiscoveredDevice>>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -47,14 +55,21 @@ impl VentService {
 
         *self.scanning_adapter.lock().await = Some(adapter);
 
-        // Spawn a task to collect discovered devices
+        // Spawn a task to collect discovered devices with names from advertisement
         let discovered_devices = Arc::clone(&self.discovered_devices);
         tokio::spawn(async move {
             let mut rx = rx;
-            while let Some(device_id) = rx.recv().await {
+            while let Some(device_info) = rx.recv().await {
                 let mut devices = discovered_devices.lock().await;
-                if !devices.contains(&device_id) {
-                    devices.push(device_id);
+
+                // Check if device already exists
+                if !devices.iter().any(|d| d.id == device_info.id) {
+                    // Device info already includes name and address from advertisement
+                    devices.push(DiscoveredDevice {
+                        id: device_info.id,
+                        address: device_info.address,
+                        name: device_info.name,
+                    });
                 }
             }
         });
@@ -214,7 +229,7 @@ impl VentService {
     }
 
     /// Get list of discovered devices
-    pub async fn get_discovered_devices(&self) -> Vec<String> {
+    pub async fn get_discovered_devices(&self) -> Vec<DiscoveredDevice> {
         self.discovered_devices.lock().await.clone()
     }
 }

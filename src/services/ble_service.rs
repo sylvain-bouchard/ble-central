@@ -1,10 +1,18 @@
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, WriteType};
 use btleplug::platform::{Adapter, Manager, Peripheral};
+use serde::{Deserialize, Serialize};
 
 use futures::stream::StreamExt;
 
 use tokio::sync::mpsc;
 use tokio::time::{sleep, timeout, Duration};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DeviceInfo {
+    pub id: String,
+    pub address: Option<String>,
+    pub name: Option<String>,
+}
 
 pub struct BleService {
     #[allow(dead_code)]
@@ -32,8 +40,8 @@ impl BleService {
     pub async fn start_scan(
         &self,
         adapter: &Adapter,
-    ) -> Result<mpsc::Receiver<String>, btleplug::Error> {
-        let (tx, rx) = mpsc::channel::<String>(32);
+    ) -> Result<mpsc::Receiver<DeviceInfo>, btleplug::Error> {
+        let (tx, rx) = mpsc::channel::<DeviceInfo>(32);
         let adapter_clone = adapter.clone();
 
         tokio::spawn(async move {
@@ -42,7 +50,49 @@ impl BleService {
                 while let Some(event) = events.next().await {
                     match event {
                         btleplug::api::CentralEvent::DeviceDiscovered(id) => {
-                            let _ = tx.send(id.to_string()).await;
+                            // Try to get device name and address from peripherals
+                            let (device_name, device_address) = if let Ok(peripherals) =
+                                adapter_clone.peripherals().await
+                            {
+                                let device_data = peripherals
+                                    .iter()
+                                    .find(|p| p.id().to_string() == id.to_string())
+                                    .and_then(|p| {
+                                        // Try to get properties (may be cached or from advertisement)
+                                        if let Ok(Some(props)) =
+                                            futures::executor::block_on(p.properties())
+                                        {
+                                            Some((props.local_name, props.address))
+                                        } else {
+                                            None
+                                        }
+                                    });
+
+                                match device_data {
+                                    Some((name, addr)) => {
+                                        let addr_string = addr.to_string();
+                                        // On macOS, address may be 00:00:00:00:00:00 (unavailable)
+                                        // In that case, use the device ID as address since it's unique
+                                        let final_address = if addr_string == "00:00:00:00:00:00" {
+                                            None
+                                        } else {
+                                            Some(addr_string)
+                                        };
+                                        (name, final_address)
+                                    }
+                                    None => (None, None),
+                                }
+                            } else {
+                                (None, None)
+                            };
+
+                            let device_info = DeviceInfo {
+                                id: id.to_string(),
+                                address: device_address,
+                                name: device_name,
+                            };
+
+                            let _ = tx.send(device_info).await;
                         }
                         _ => {}
                     }

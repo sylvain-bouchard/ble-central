@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
+use crate::services::vent_service::DiscoveredDevice;
 use crate::state::ApplicationState;
 
 // Request/Response types
@@ -35,7 +36,7 @@ pub struct VentStatusResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiscoveredDevicesResponse {
-    pub devices: Vec<String>,
+    pub devices: Vec<DiscoveredDevice>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
