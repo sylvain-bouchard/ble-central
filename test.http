@@ -20,9 +20,18 @@ GET {{apiUrl}}/api/vent/status
 
 
 ### Connect to BLE device
-POST {{apiUrl}}/api/ble/connect/{device_id}
+
+@device_id = 5c205201-0b65-a9e2-fee7-26f4881acca1
+
+POST {{apiUrl}}/api/ble/connect/{{device_id}}
 Content-Type: application/json
 
 {
   "timeout_secs": 10
 }
+
+### Open vent
+POST {{apiUrl}}/api/vent/open
+
+### Close vent
+POST {{apiUrl}}/api/vent/close
