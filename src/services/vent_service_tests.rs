@@ -34,11 +34,11 @@ async fn test_vent_initial_status_is_disconnected() {
 async fn test_parse_device_status_open() {
     let service = create_test_vent_service().await;
 
-    let status = service.parse_device_status("device_open");
+    let status = service.parse_device_status_byte(0x01);
     assert_eq!(
         format!("{:?}", status),
         "Open",
-        "Should parse 'open' response as Open status"
+        "Should parse 0x01 as Open status"
     );
 }
 
@@ -46,11 +46,11 @@ async fn test_parse_device_status_open() {
 async fn test_parse_device_status_closed() {
     let service = create_test_vent_service().await;
 
-    let status = service.parse_device_status("device_closed");
+    let status = service.parse_device_status_byte(0x02);
     assert_eq!(
         format!("{:?}", status),
         "Closed",
-        "Should parse 'closed' response as Closed status"
+        "Should parse 0x02 as Closed status"
     );
 }
 
@@ -58,11 +58,11 @@ async fn test_parse_device_status_closed() {
 async fn test_parse_device_status_connected() {
     let service = create_test_vent_service().await;
 
-    let status = service.parse_device_status("device_connected");
+    let status = service.parse_device_status_byte(0x03);
     assert_eq!(
         format!("{:?}", status),
-        "Connected",
-        "Should parse 'connected' response as Connected status"
+        "Disconnected",
+        "Should default to Disconnected for unknown byte values"
     );
 }
 
@@ -70,7 +70,7 @@ async fn test_parse_device_status_connected() {
 async fn test_parse_device_status_unknown() {
     let service = create_test_vent_service().await;
 
-    let status = service.parse_device_status("unknown_status");
+    let status = service.parse_device_status_byte(0xFF);
     assert_eq!(
         format!("{:?}", status),
         "Disconnected",

@@ -107,25 +107,28 @@ impl VentService {
 
         let peripheral = device.as_ref().unwrap();
 
-        // Send "open" command
+        // Send "open" command as single byte: 0x01
         self.ble_service
-            .write_characteristic(peripheral, CONTROL_UUID, b"open")
+            .write_characteristic(peripheral, CONTROL_UUID, &[0x01])
             .await?;
 
         // Verify by reading device status
-        let status = self
+        let status_byte = self
             .read_device_status_from_characteristic(peripheral)
             .await?;
 
         // Update local status based on device response
-        if status.to_lowercase().contains("open") {
+        if status_byte == 0x01 {
             *self.vent_status.lock().await = VentStatus::Open;
             Ok(())
         } else {
             Err(VentError::Ble(btleplug::Error::Other(Box::new(
                 std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("Device did not confirm open status. Response: {}", status),
+                    format!(
+                        "Device did not confirm open status. Response: 0x{:02x}",
+                        status_byte
+                    ),
                 ),
             ))))
         }
@@ -141,25 +144,28 @@ impl VentService {
 
         let peripheral = device.as_ref().unwrap();
 
-        // Send "close" command
+        // Send "close" command as single byte: 0x02
         self.ble_service
-            .write_characteristic(peripheral, CONTROL_UUID, b"close")
+            .write_characteristic(peripheral, CONTROL_UUID, &[0x02])
             .await?;
 
         // Verify by reading device status
-        let status = self
+        let status_byte = self
             .read_device_status_from_characteristic(peripheral)
             .await?;
 
         // Update local status based on device response
-        if status.to_lowercase().contains("closed") {
+        if status_byte == 0x02 {
             *self.vent_status.lock().await = VentStatus::Closed;
             Ok(())
         } else {
             Err(VentError::Ble(btleplug::Error::Other(Box::new(
                 std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("Device did not confirm closed status. Response: {}", status),
+                    format!(
+                        "Device did not confirm closed status. Response: 0x{:02x}",
+                        status_byte
+                    ),
                 ),
             ))))
         }
@@ -169,8 +175,8 @@ impl VentService {
     pub async fn get_vent_status(&self) -> VentStatus {
         // If device is connected, try to read the actual status
         if let Some(device) = self.connected_device.lock().await.as_ref() {
-            if let Ok(status) = self.read_device_status_from_characteristic(device).await {
-                return self.parse_device_status(&status);
+            if let Ok(status_byte) = self.read_device_status_from_characteristic(device).await {
+                return self.parse_device_status_byte(status_byte);
             }
         }
         // Fall back to local status if reading fails
@@ -207,26 +213,28 @@ impl VentService {
     async fn read_device_status_from_characteristic(
         &self,
         peripheral: &Peripheral,
-    ) -> Result<String, VentError> {
+    ) -> Result<u8, VentError> {
         let data = self
             .ble_service
             .read_characteristic(peripheral, STATUS_UUID)
             .await?;
 
-        Ok(String::from_utf8_lossy(&data).to_string())
+        // Device responds with a single byte: 0x01 = open, 0x02 = closed
+        if data.is_empty() {
+            return Err(VentError::Ble(btleplug::Error::Other(Box::new(
+                std::io::Error::new(std::io::ErrorKind::Other, "Device returned empty response"),
+            ))));
+        }
+
+        Ok(data[0])
     }
 
-    /// Parse device status response and convert to VentStatus
-    pub fn parse_device_status(&self, response: &str) -> VentStatus {
-        let lower = response.to_lowercase();
-        if lower.contains("open") {
-            VentStatus::Open
-        } else if lower.contains("closed") || lower.contains("close") {
-            VentStatus::Closed
-        } else if lower.contains("connected") {
-            VentStatus::Connected
-        } else {
-            VentStatus::Disconnected
+    /// Parse device status response (binary byte) and convert to VentStatus
+    pub fn parse_device_status_byte(&self, status_byte: u8) -> VentStatus {
+        match status_byte {
+            0x01 => VentStatus::Open,
+            0x02 => VentStatus::Closed,
+            _ => VentStatus::Disconnected,
         }
     }
 
