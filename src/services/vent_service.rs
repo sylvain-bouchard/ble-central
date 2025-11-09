@@ -1,13 +1,13 @@
 use crate::domain::vent::vent::VentStatus;
 use crate::services::ble_service::BleService;
 use btleplug::platform::{Adapter, Peripheral};
+use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // BLE Characteristic UUIDs
-const CONTROL_UUID: &str = "0000180a-0000-1000-8000-00805f9b34fb"; // Control characteristic
-const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic (read responses)
+const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscoveredDevice {
@@ -86,6 +86,38 @@ impl VentService {
             .connect_to_device(device_id, timeout_secs)
             .await?;
 
+        // Subscribe to status characteristic notifications
+        self.ble_service
+            .subscribe_to_characteristic(&peripheral, STATUS_UUID)
+            .await?;
+
+        // Spawn background task to listen for status notifications
+        let vent_status_clone = Arc::clone(&self.vent_status);
+        let peripheral_clone = peripheral.clone();
+        let ble_service_clone = self.ble_service.clone();
+        let status_uuid = STATUS_UUID.to_string();
+
+        tokio::spawn(async move {
+            if let Ok(mut notifications) =
+                ble_service_clone.get_notifications(&peripheral_clone).await
+            {
+                while let Some(notification) = notifications.next().await {
+                    // Check if this notification is from the status characteristic
+                    if notification.uuid.to_string() == status_uuid {
+                        if !notification.value.is_empty() {
+                            let status_byte = notification.value[0];
+                            let new_status = match status_byte {
+                                0x01 => VentStatus::Open,
+                                0x02 => VentStatus::Closed,
+                                _ => VentStatus::Disconnected,
+                            };
+                            *vent_status_clone.lock().await = new_status;
+                        }
+                    }
+                }
+            }
+        });
+
         // Stop scanning after successfully connecting
         if let Some(adapter) = self.scanning_adapter.lock().await.take() {
             let _ = self.ble_service.stop_scan(&adapter).await;
@@ -107,31 +139,14 @@ impl VentService {
 
         let peripheral = device.as_ref().unwrap();
 
-        // Send "open" command as single byte: 0x01
+        // Write "open" status as single byte: 0x01 to the status characteristic
+        // Device will receive this and update its state
+        // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(peripheral, CONTROL_UUID, &[0x01])
+            .write_characteristic(peripheral, STATUS_UUID, &[0x01])
             .await?;
 
-        // Verify by reading device status
-        let status_byte = self
-            .read_device_status_from_characteristic(peripheral)
-            .await?;
-
-        // Update local status based on device response
-        if status_byte == 0x01 {
-            *self.vent_status.lock().await = VentStatus::Open;
-            Ok(())
-        } else {
-            Err(VentError::Ble(btleplug::Error::Other(Box::new(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!(
-                        "Device did not confirm open status. Response: 0x{:02x}",
-                        status_byte
-                    ),
-                ),
-            ))))
-        }
+        Ok(())
     }
 
     /// Close the vent by sending a command to the BLE device
@@ -144,42 +159,19 @@ impl VentService {
 
         let peripheral = device.as_ref().unwrap();
 
-        // Send "close" command as single byte: 0x02
+        // Write "close" status as single byte: 0x02 to the status characteristic
+        // Device will receive this and update its state
+        // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(peripheral, CONTROL_UUID, &[0x02])
+            .write_characteristic(peripheral, STATUS_UUID, &[0x02])
             .await?;
 
-        // Verify by reading device status
-        let status_byte = self
-            .read_device_status_from_characteristic(peripheral)
-            .await?;
-
-        // Update local status based on device response
-        if status_byte == 0x02 {
-            *self.vent_status.lock().await = VentStatus::Closed;
-            Ok(())
-        } else {
-            Err(VentError::Ble(btleplug::Error::Other(Box::new(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!(
-                        "Device did not confirm closed status. Response: 0x{:02x}",
-                        status_byte
-                    ),
-                ),
-            ))))
-        }
+        Ok(())
     }
 
-    /// Get the current vent status (reads from device if connected)
+    /// Get the current vent status (from cached notifications)
     pub async fn get_vent_status(&self) -> VentStatus {
-        // If device is connected, try to read the actual status
-        if let Some(device) = self.connected_device.lock().await.as_ref() {
-            if let Ok(status_byte) = self.read_device_status_from_characteristic(device).await {
-                return self.parse_device_status_byte(status_byte);
-            }
-        }
-        // Fall back to local status if reading fails
+        // Return the cached status, which is updated by notifications
         self.vent_status.lock().await.clone()
     }
 
@@ -210,6 +202,7 @@ impl VentService {
     }
 
     /// Read the actual status from the device's status characteristic
+    #[allow(dead_code)]
     async fn read_device_status_from_characteristic(
         &self,
         peripheral: &Peripheral,
@@ -230,6 +223,7 @@ impl VentService {
     }
 
     /// Parse device status response (binary byte) and convert to VentStatus
+    #[allow(dead_code)]
     pub fn parse_device_status_byte(&self, status_byte: u8) -> VentStatus {
         match status_byte {
             0x01 => VentStatus::Open,

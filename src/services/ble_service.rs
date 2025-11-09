@@ -22,6 +22,15 @@ pub struct BleService {
     adapters: Vec<Adapter>,
 }
 
+impl Clone for BleService {
+    fn clone(&self) -> Self {
+        BleService {
+            manager: self.manager.clone(),
+            adapters: self.adapters.clone(),
+        }
+    }
+}
+
 impl BleService {
     pub async fn new() -> Self {
         let manager = Manager::new().await.unwrap();
@@ -172,6 +181,7 @@ impl BleService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn read_characteristic(
         &self,
         device: &Peripheral,
@@ -193,15 +203,17 @@ impl BleService {
     pub async fn write_characteristic(
         &self,
         device: &Peripheral,
-        char_uuid: &str,
+        characteristic_uuid: &str,
         data: &[u8],
     ) -> Result<(), btleplug::Error> {
         // Match characteristic by UUID string
-        let chars = device.characteristics();
+        let characteristics = device.characteristics();
 
-        for ch in chars {
-            if ch.uuid.to_string() == char_uuid {
-                device.write(&ch, data, WriteType::WithResponse).await?;
+        for characteristic in characteristics {
+            if characteristic.uuid.to_string() == characteristic_uuid {
+                device
+                    .write(&characteristic, data, WriteType::WithResponse)
+                    .await?;
                 return Ok(());
             }
         }
@@ -209,6 +221,35 @@ impl BleService {
             std::io::ErrorKind::NotFound,
             "Characteristic not found",
         ))))
+    }
+
+    /// Subscribe to notifications on a characteristic by UUID string
+    pub async fn subscribe_to_characteristic(
+        &self,
+        device: &Peripheral,
+        characteristic_uuid: &str,
+    ) -> Result<(), btleplug::Error> {
+        let characteristics = device.characteristics();
+
+        for characteristic in characteristics {
+            if characteristic.uuid.to_string() == characteristic_uuid {
+                device.subscribe(&characteristic).await?;
+                return Ok(());
+            }
+        }
+        Err(btleplug::Error::Other(Box::new(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Characteristic not found",
+        ))))
+    }
+
+    /// Get the notification stream from a device
+    pub async fn get_notifications(
+        &self,
+        device: &Peripheral,
+    ) -> Result<futures::stream::BoxStream<'_, btleplug::api::ValueNotification>, btleplug::Error>
+    {
+        Ok(Box::pin(device.notifications().await?))
     }
 }
 
