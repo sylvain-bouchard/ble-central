@@ -10,7 +10,9 @@ use tokio::time::{sleep, timeout, Duration};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeviceInfo {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
 

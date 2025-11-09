@@ -12,7 +12,9 @@ const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status char
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscoveredDevice {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
 
