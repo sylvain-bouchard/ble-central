@@ -5,6 +5,7 @@ use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tracing::{debug, error, info};
 
 // BLE Characteristic UUIDs
 const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic
@@ -48,34 +49,53 @@ impl VentService {
     }
 
     pub async fn initialize(&self) -> Result<(), VentError> {
+        info!("Initializing BLE scan");
         let adapter = self
             .ble_service
             .get_default_adapter()
             .ok_or(VentError::NoAdapter)?;
 
+        info!("Starting BLE scan with adapter");
         let rx = self.ble_service.start_scan(&adapter).await?;
+        info!("BLE scan started, got receiver channel");
 
         *self.scanning_adapter.lock().await = Some(adapter);
 
         // Spawn a task to collect discovered devices with names from advertisement
         let discovered_devices = Arc::clone(&self.discovered_devices);
         tokio::spawn(async move {
+            info!("Device collector task started");
             let mut rx = rx;
+            let mut device_count = 0;
             while let Some(device_info) = rx.recv().await {
+                device_count += 1;
+                debug!(
+                    "Received device info #{}: id={}, name={:?}, addr={:?}",
+                    device_count, device_info.id, device_info.name, device_info.address
+                );
+
                 let mut devices = discovered_devices.lock().await;
 
                 // Check if device already exists
                 if !devices.iter().any(|d| d.id == device_info.id) {
                     // Device info already includes name and address from advertisement
                     devices.push(DiscoveredDevice {
-                        id: device_info.id,
-                        address: device_info.address,
-                        name: device_info.name,
+                        id: device_info.id.clone(),
+                        address: device_info.address.clone(),
+                        name: device_info.name.clone(),
                     });
+                    info!("Added device to list (total: {})", devices.len());
+                } else {
+                    debug!("Device {} already in list, skipping", device_info.id);
                 }
             }
+            info!(
+                "Device collector task ended (received {} devices total)",
+                device_count
+            );
         });
 
+        info!("Initialize completed");
         Ok(())
     }
 
@@ -234,7 +254,18 @@ impl VentService {
 
     /// Get list of discovered devices
     pub async fn get_discovered_devices(&self) -> Vec<DiscoveredDevice> {
-        self.discovered_devices.lock().await.clone()
+        let devices = self.discovered_devices.lock().await.clone();
+        info!(
+            "get_discovered_devices called, returning {} devices",
+            devices.len()
+        );
+        for device in &devices {
+            debug!(
+                "Device: id={}, name={:?}, address={:?}",
+                device.id, device.name, device.address
+            );
+        }
+        devices
     }
 }
 
