@@ -88,50 +88,49 @@ impl BleService {
                                         let device_data = peripherals
                                             .iter()
                                             .find(|p| p.id().to_string() == id.to_string())
-                                            .and_then(|p| {
-                                                debug!("Found matching peripheral for device {}", id);
-                                                // Try to get properties (may be cached or from advertisement)
-                                                match futures::executor::block_on(p.properties()) {
-                                                    Ok(Some(props)) => {
-                                                        debug!("Retrieved properties for {}: name={:?}, addr={:?}", 
-                                                               id, props.local_name, props.address);
-                                                        Some((props.local_name, props.address))
-                                                    }
-                                                    Ok(None) => {
-                                                        warn!("Properties returned None for device {}", id);
-                                                        None
-                                                    }
-                                                    Err(e) => {
-                                                        warn!("Failed to get properties for device {}: {:?}", id, e);
-                                                        None
-                                                    }
+                                            .map(|p| p.clone());
+
+                                        // If we found the peripheral, try to get its properties
+                                        if let Some(peripheral) = device_data {
+                                            debug!("Found matching peripheral for device {}", id);
+                                            match peripheral.properties().await {
+                                                Ok(Some(props)) => {
+                                                    debug!("Retrieved properties for {}: name={:?}, addr={:?}", 
+                                                           id, props.local_name, props.address);
+                                                    Some((props.local_name, props.address))
                                                 }
-                                            });
-
-                                        match device_data {
-                                            Some((name, addr)) => {
-                                                let addr_string = addr.to_string();
-                                                debug!(
-                                                    "Device {}: name={:?}, raw_addr={}",
-                                                    id, name, addr_string
-                                                );
-
-                                                // On macOS, address may be 00:00:00:00:00:00 (unavailable)
-                                                let final_address = if addr_string
-                                                    == "00:00:00:00:00:00"
-                                                {
-                                                    debug!("Address is invalid (00:00:00:00:00:00), setting to None");
+                                                Ok(None) => {
+                                                    warn!("Properties returned None for device {}", id);
                                                     None
-                                                } else {
-                                                    Some(addr_string)
-                                                };
-                                                (name, final_address)
+                                                }
+                                                Err(e) => {
+                                                    warn!("Failed to get properties for device {}: {:?}", id, e);
+                                                    None
+                                                }
                                             }
-                                            None => {
-                                                debug!("No device data found for {}", id);
-                                                (None, None)
-                                            }
+                                        } else {
+                                            debug!("No matching peripheral found for device {}", id);
+                                            None
                                         }
+                                        .map(|(name, addr)| {
+                                            let addr_string = addr.to_string();
+                                            debug!(
+                                                "Device {}: name={:?}, raw_addr={}",
+                                                id, name, addr_string
+                                            );
+
+                                            // On macOS, address may be 00:00:00:00:00:00 (unavailable)
+                                            let final_address = if addr_string
+                                                == "00:00:00:00:00:00"
+                                            {
+                                                debug!("Address is invalid (00:00:00:00:00:00), setting to None");
+                                                None
+                                            } else {
+                                                Some(addr_string)
+                                            };
+                                            (name, final_address)
+                                        })
+                                        .unwrap_or((None, None))
                                     }
                                     Err(e) => {
                                         error!("Failed to get peripherals: {:?}", e);
