@@ -6,6 +6,7 @@ use api::vent::vent_routes::build_router;
 use services::ble_service::BleService;
 use services::vent_service::VentService;
 use state::ApplicationState;
+use tracing_subscriber;
 
 mod api;
 mod domain;
@@ -14,6 +15,11 @@ mod state;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    // Initialize tracing/logging
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
     let ble_service = BleService::new().await;
     let vent_service = Arc::new(VentService::new(ble_service));
     let vent_api_controller = Arc::new(VentApiController::new());
