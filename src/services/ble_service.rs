@@ -180,24 +180,29 @@ impl BleService {
     pub async fn wait_for_device(
         &self,
         device_id: &str,
-        timeout_dur: Duration,
+        timeout_seconds: Duration,
     ) -> Result<Peripheral, btleplug::Error> {
+        let device_id = device_id.to_string();
+
         let poll = async {
             loop {
                 for adapter in &self.adapters {
                     let peripherals = adapter.peripherals().await?;
-                    for per in peripherals {
-                        if per.id().to_string() == device_id {
-                            return Ok::<Peripheral, btleplug::Error>(per);
-                        }
+
+                    if let Some(per) = peripherals
+                        .into_iter()
+                        .find(|p| p.id().to_string() == device_id)
+                    {
+                        return Ok(per);
                     }
                 }
+
                 sleep(Duration::from_millis(200)).await;
             }
         };
 
-        match timeout(timeout_dur, poll).await {
-            Ok(Ok(peripheral)) => Ok(peripheral),
+        match timeout(timeout_seconds, poll).await {
+            Ok(Ok(p)) => Ok(p),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(btleplug::Error::DeviceNotFound),
         }
@@ -224,10 +229,8 @@ impl BleService {
     ) -> Result<Peripheral, btleplug::Error> {
         let timeout_dur = Duration::from_secs(timeout_secs);
 
-        // Wait for device to be discovered
         let _discovered = self.wait_for_device(device_id, timeout_dur).await?;
 
-        // Use connect_device to perform the actual connection
         self.connect_device(device_id).await
     }
 
