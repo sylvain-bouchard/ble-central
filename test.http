@@ -1,7 +1,6 @@
 @apiUrl = http://localhost:8080
 
 ### Start BLE scan
-
 POST {{apiUrl}}/api/ble/scan
 Content-Type: application/json
 
@@ -15,11 +14,12 @@ GET {{apiUrl}}/api/ble/devices
 
 
 ### Check device availability
-
 GET {{apiUrl}}/api/vent/status
 
 
 ### Connect to BLE device
+### On Linux, encode the device_id (replace / with %2F)
+### Example: hci0/dev_67_0C_9D_21_A7_12 → hci0%2Fdev_67_0C_9D_21_A7_12
 
 @device_id = 5c205201-0b65-a9e2-fee7-26f4881acca1
 
