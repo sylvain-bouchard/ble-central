@@ -1,7 +1,7 @@
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, WriteType};
-use btleplug::platform::{Adapter, Manager, Peripheral};
+use btleplug::platform::{Adapter, Manager, Peripheral, PeripheralId};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 use futures::stream::StreamExt;
 
@@ -53,120 +53,47 @@ impl BleService {
         &self,
         adapter: &Adapter,
     ) -> Result<mpsc::Receiver<DeviceInfo>, btleplug::Error> {
-        info!("Starting BLE scan");
+        info!("Starting scan on {}...", adapter.adapter_info().await?);
+
         let (tx, rx) = mpsc::channel::<DeviceInfo>(32);
-        let adapter_clone = adapter.clone();
+        let adapter = adapter.clone();
 
         tokio::spawn(async move {
-            debug!("Spawn task: Getting adapter events");
-            match adapter_clone.events().await {
-                Ok(mut events) => {
-                    info!("Successfully created event stream");
-
-                    // Start the scan
-                    match adapter_clone.start_scan(ScanFilter::default()).await {
-                        Ok(_) => info!("BLE scan started successfully"),
-                        Err(e) => {
-                            error!("Failed to start BLE scan: {:?}", e);
-                            return;
-                        }
-                    }
-
-                    debug!("Entering event loop");
-                    while let Some(event) = events.next().await {
-                        match event {
-                            btleplug::api::CentralEvent::DeviceDiscovered(id) => {
-                                debug!("Device discovered event: {}", id);
-
-                                // Try to get device name and address from peripherals
-                                let (device_name, device_address) = match adapter_clone
-                                    .peripherals()
-                                    .await
-                                {
-                                    Ok(peripherals) => {
-                                        debug!("Retrieved {} peripherals", peripherals.len());
-                                        let device_data = peripherals
-                                            .iter()
-                                            .find(|p| p.id().to_string() == id.to_string())
-                                            .map(|p| p.clone());
-
-                                        // If we found the peripheral, try to get its properties
-                                        if let Some(peripheral) = device_data {
-                                            debug!("Found matching peripheral for device {}", id);
-                                            match peripheral.properties().await {
-                                                Ok(Some(props)) => {
-                                                    debug!("Retrieved properties for {}: name={:?}, addr={:?}", 
-                                                           id, props.local_name, props.address);
-                                                    Some((props.local_name, props.address))
-                                                }
-                                                Ok(None) => {
-                                                    warn!("Properties returned None for device {}", id);
-                                                    None
-                                                }
-                                                Err(e) => {
-                                                    warn!("Failed to get properties for device {}: {:?}", id, e);
-                                                    None
-                                                }
-                                            }
-                                        } else {
-                                            debug!("No matching peripheral found for device {}", id);
-                                            None
-                                        }
-                                        .map(|(name, addr)| {
-                                            let addr_string = addr.to_string();
-                                            debug!(
-                                                "Device {}: name={:?}, raw_addr={}",
-                                                id, name, addr_string
-                                            );
-
-                                            // On macOS, address may be 00:00:00:00:00:00 (unavailable)
-                                            let final_address = if addr_string
-                                                == "00:00:00:00:00:00"
-                                            {
-                                                debug!("Address is invalid (00:00:00:00:00:00), setting to None");
-                                                None
-                                            } else {
-                                                Some(addr_string)
-                                            };
-                                            (name, final_address)
-                                        })
-                                        .unwrap_or((None, None))
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to get peripherals: {:?}", e);
-                                        (None, None)
-                                    }
-                                };
-
-                                let device_info = DeviceInfo {
-                                    id: id.to_string(),
-                                    address: device_address.clone(),
-                                    name: device_name.clone(),
-                                };
-
-                                info!(
-                                    "Sending device info: id={}, name={:?}, address={:?}",
-                                    device_info.id, device_info.name, device_info.address
-                                );
-
-                                if let Err(e) = tx.send(device_info).await {
-                                    error!("Failed to send device info through channel: {:?}", e);
-                                }
-                            }
-                            event => {
-                                debug!("Received non-discovery event: {:?}", event);
-                            }
-                        }
-                    }
-                    info!("Event stream ended");
+            let mut events = match adapter.events().await {
+                Ok(events) => events,
+                Err(error) => {
+                    error!("Failed to get adapter events: {:?}", error);
+                    return;
                 }
-                Err(e) => {
-                    error!("Failed to get adapter events: {:?}", e);
+            };
+
+            if let Err(error) = adapter.start_scan(ScanFilter::default()).await {
+                error!("Failed to start BLE scan: {:?}", error);
+                return;
+            }
+
+            while let Some(event) = events.next().await {
+                let btleplug::api::CentralEvent::DeviceDiscovered(id) = event else {
+                    continue;
+                };
+
+                let Some((name, address)) = get_device_info(&adapter, &id).await else {
+                    continue;
+                };
+
+                let info = DeviceInfo {
+                    id: id.to_string(),
+                    name,
+                    address,
+                };
+
+                if tx.send(info).await.is_err() {
+                    error!("Receiver dropped; stopping scan task");
+                    return;
                 }
             }
         });
 
-        debug!("scan_start returning receiver channel");
         Ok(rx)
     }
 
@@ -312,6 +239,27 @@ impl BleService {
     }
 }
 
+async fn get_device_info(
+    adapter: &Adapter,
+    id: &PeripheralId,
+) -> Option<(Option<String>, Option<String>)> {
+    let peripherals = adapter.peripherals().await.ok()?;
+
+    let peripheral = peripherals.iter().find(|p| p.id() == *id)?;
+    let props = peripheral.properties().await.ok()??;
+
+    let name = props.local_name;
+    let addr = props.address.to_string();
+
+    // macOS returns 00:00:00:00:00:00 — ignore that
+    let address = if addr == "00:00:00:00:00:00" {
+        None
+    } else {
+        Some(addr)
+    };
+
+    Some((name, address))
+}
 #[cfg(test)]
 mod ble_service_tests {
     include!("ble_service_tests.rs");
