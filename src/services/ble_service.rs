@@ -141,6 +141,11 @@ impl BleService {
             for device in devices {
                 if device.id().to_string() == device_id {
                     device.connect().await?;
+
+                    if let Err(e) = device.discover_services().await {
+                        error!("Failed to discover GATT services: {:?}", e);
+                        return Err(e);
+                    }
                     return Ok(device);
                 }
             }
