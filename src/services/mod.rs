@@ -1,2 +1,3 @@
 pub mod ble_service;
+pub mod mqtt_service;
 pub mod vent_service;

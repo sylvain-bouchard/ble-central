@@ -1,0 +1,97 @@
+use rumqttc::{AsyncClient, MqttOptions, QoS};
+use std::time::Duration;
+use tracing::{error, info};
+
+#[derive(Clone)]
+pub struct MqttService {
+    client: AsyncClient,
+}
+
+impl MqttService {
+    /// Create a new MqttService with the given broker configuration
+    pub async fn new(
+        broker: &str,
+        port: u16,
+        client_id: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut mqtt_options = MqttOptions::new(client_id, broker, port);
+        mqtt_options.set_keep_alive(Duration::from_secs(5));
+
+        let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
+
+        // Spawn a task to handle MQTT events
+        tokio::spawn(async move {
+            loop {
+                match eventloop.poll().await {
+                    Ok(event) => {
+                        info!("MQTT Event: {:?}", event);
+                    }
+                    Err(e) => {
+                        error!("MQTT error: {:?}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(MqttService { client })
+    }
+
+    /// Send an MQTT message to the specified topic
+    pub async fn send_message(
+        &self,
+        topic: &str,
+        payload: &[u8],
+        qos: QoS,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.client.publish(topic, qos, false, payload).await?;
+        info!(
+            "Published to {}: {:?}",
+            topic,
+            String::from_utf8_lossy(payload)
+        );
+        Ok(())
+    }
+
+    /// Send a string message to the specified topic
+    pub async fn send_string_message(
+        &self,
+        topic: &str,
+        message: &str,
+        qos: QoS,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.send_message(topic, message.as_bytes(), qos).await
+    }
+
+    /// Send a JSON message to the specified topic
+    pub async fn send_json_message(
+        &self,
+        topic: &str,
+        value: &serde_json::Value,
+        qos: QoS,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let json_str = serde_json::to_string(value)?;
+        self.send_message(topic, json_str.as_bytes(), qos).await
+    }
+}
+
+#[cfg(test)]
+mod mqtt_service_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_mqtt_service_creation() {
+        // Note: This test requires a running MQTT broker
+        // For unit testing, you might want to use a mock instead
+        // This is a placeholder test that documents the API
+
+        // let service = MqttService::new("localhost", 1883, "test-client")
+        //     .await
+        //     .expect("Failed to create MQTT service");
+
+        // let result = service
+        //     .send_string_message("test/topic", "hello", QoS::AtMostOnce)
+        //     .await;
+
+        // assert!(result.is_ok());
+    }
+}
