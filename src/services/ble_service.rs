@@ -73,23 +73,30 @@ impl BleService {
             }
 
             while let Some(event) = events.next().await {
-                let btleplug::api::CentralEvent::DeviceDiscovered(id) = event else {
-                    continue;
-                };
+                match event {
+                    btleplug::api::CentralEvent::DeviceDiscovered(id) => {
+                        // Device discovered → extract info
+                        if let Some((name, address)) = get_device_info(&adapter, &id).await {
+                            let info = DeviceInfo {
+                                id: id.to_string(),
+                                name,
+                                address,
+                            };
 
-                let Some((name, address)) = get_device_info(&adapter, &id).await else {
-                    continue;
-                };
+                            if tx.send(info).await.is_err() {
+                                error!("Receiver dropped; stopping scan task");
+                                return;
+                            }
+                        }
+                    }
 
-                let info = DeviceInfo {
-                    id: id.to_string(),
-                    name,
-                    address,
-                };
-
-                if tx.send(info).await.is_err() {
-                    error!("Receiver dropped; stopping scan task");
-                    return;
+                    btleplug::api::CentralEvent::ManufacturerDataAdvertisement {
+                        id,
+                        manufacturer_data,
+                    } => {
+                        info!("Manufacturer data from {id}: data={:?}", manufacturer_data);
+                    }
+                    _ => {}
                 }
             }
         });
