@@ -8,6 +8,17 @@ pub struct SensorReadings {
     pub pm2p5: f32,
 }
 
+use super::data::SensorData;
+
+impl SensorData for SensorReadings {
+    fn to_json(&self) -> String {
+        format!(
+            r#"{{"co2":{},"temperature":{:.2},"humidity":{:.2},"pm1p0":{:.1},"pm2p5":{:.1},"voc_index":{}}}"#,
+            self.co2, self.temperature, self.humidity, self.pm1p0, self.pm2p5, self.voc_index
+        )
+    }
+}
+
 impl SensorReadings {
     /// Parse a manufacturer data payload from the ESP32-H2 BLE peripheral
     /// Expects exactly 14 bytes of data starting at offset 2 (indices 0-11 in this slice):
