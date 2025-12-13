@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, WriteType};
 use btleplug::platform::{Adapter, Manager, Peripheral, PeripheralId};
 use serde::{Deserialize, Serialize};
@@ -5,8 +7,13 @@ use tracing::{error, info};
 
 use futures::stream::StreamExt;
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 use tokio::time::{sleep, timeout, Duration};
+
+#[async_trait::async_trait]
+pub trait BleDataObserver: Send + Sync {
+    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Vec<u8>);
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeviceInfo {
@@ -21,6 +28,7 @@ pub struct BleService {
     #[allow(dead_code)]
     manager: Manager,
     adapters: Vec<Adapter>,
+    observers: Arc<RwLock<Vec<Arc<dyn BleDataObserver>>>>,
 }
 
 impl Clone for BleService {
@@ -28,6 +36,7 @@ impl Clone for BleService {
         BleService {
             manager: self.manager.clone(),
             adapters: self.adapters.clone(),
+            observers: Arc::clone(&self.observers),
         }
     }
 }
@@ -36,8 +45,13 @@ impl BleService {
     pub async fn new() -> Self {
         let manager = Manager::new().await.unwrap();
         let adapters = manager.adapters().await.unwrap();
+        let observers = Arc::new(RwLock::new(Vec::new()));
 
-        BleService { manager, adapters }
+        BleService {
+            manager,
+            adapters,
+            observers,
+        }
     }
 
     #[allow(dead_code)]
@@ -57,6 +71,7 @@ impl BleService {
 
         let (tx, rx) = mpsc::channel::<DeviceInfo>(32);
         let adapter = adapter.clone();
+        let self_clone = self.clone();
 
         tokio::spawn(async move {
             let mut events = match adapter.events().await {
@@ -75,14 +90,12 @@ impl BleService {
             while let Some(event) = events.next().await {
                 match event {
                     btleplug::api::CentralEvent::DeviceDiscovered(id) => {
-                        // Device discovered → extract info
                         if let Some((name, address)) = get_device_info(&adapter, &id).await {
                             let info = DeviceInfo {
                                 id: id.to_string(),
                                 name,
                                 address,
                             };
-
                             if tx.send(info).await.is_err() {
                                 error!("Receiver dropped; stopping scan task");
                                 return;
@@ -95,6 +108,11 @@ impl BleService {
                         manufacturer_data,
                     } => {
                         info!("Manufacturer data from {id}: data={:?}", manufacturer_data);
+                        for (manufacturer_id, data) in manufacturer_data.iter() {
+                            self_clone
+                                .notify_observers(id.to_string(), *manufacturer_id, data.clone())
+                                .await;
+                        }
                     }
                     _ => {}
                 }
@@ -177,6 +195,23 @@ impl BleService {
         device.disconnect().await?;
 
         Ok(())
+    }
+
+    pub async fn register_observer(&self, observer: Arc<dyn BleDataObserver>) {
+        self.observers.write().await.push(observer);
+    }
+
+    async fn notify_observers(&self, id: String, manufacturer_id: u16, data: Vec<u8>) {
+        let observers = self.observers.read().await.clone();
+
+        for observer in observers {
+            let id = id.clone();
+            let data = data.clone();
+
+            tokio::spawn(async move {
+                observer.on_sensor_data(id, manufacturer_id, data).await;
+            });
+        }
     }
 
     #[allow(dead_code)]
