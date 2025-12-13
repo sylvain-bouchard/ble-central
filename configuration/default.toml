@@ -1,15 +1,13 @@
 [api]
-local_ip = '0.0.0.0'
-port = 3000
+host = '0.0.0.0'
+port = 8080
+log_level = 'info'
 
-[media]
-enabled = false
-recording_duration = 20
-output_folder = 'output'
+[mqtt]
+broker = 'localhost'
+port = 1883
+client_id = 'ble_to_mqtt_bridge'
+keep_alive_secs = 5
 
-[datasource]
-enabled = true
-type = 'postgres'
-host = 'localhost'
-port = 5432
-database = 'capture'
+[ble]
+enable_scan = true

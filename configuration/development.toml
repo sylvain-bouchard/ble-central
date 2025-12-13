@@ -1,0 +1,5 @@
+[api]
+log_level = 'debug'
+
+[mqtt]
+broker = '192.168.0.36'
