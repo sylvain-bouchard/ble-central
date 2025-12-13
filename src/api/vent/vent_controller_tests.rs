@@ -1,5 +1,6 @@
 use crate::api::vent::vent_controller::{ConnectRequest, ScanRequest, VentApiController};
 use crate::services::ble_service::BleService;
+use crate::services::mqtt_service::MqttService;
 use crate::services::vent_service::VentService;
 use crate::state::ApplicationState;
 use std::sync::Arc;
@@ -7,10 +8,14 @@ use std::sync::Arc;
 async fn create_test_app_state() -> ApplicationState {
     let ble_service = BleService::new().await;
     let vent_service = VentService::new(ble_service);
+    let mqtt_service = MqttService::new("localhost", 1883, "test-client")
+        .await
+        .expect("Failed to create MQTT service");
 
     ApplicationState {
         vent_service: Arc::new(vent_service),
         vent_api_controller: Arc::new(VentApiController::new()),
+        mqtt_service: Arc::new(mqtt_service),
     }
 }
 
