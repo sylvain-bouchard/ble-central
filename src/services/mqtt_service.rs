@@ -2,6 +2,9 @@ use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::time::Duration;
 use tracing::{error, info};
 
+use crate::domain::sensor::{SensorData, SensorReadings};
+use crate::services::ble_service::BleDataObserver;
+
 #[derive(Clone)]
 pub struct MqttService {
     client: AsyncClient,
@@ -74,10 +77,49 @@ impl MqttService {
     }
 }
 
+#[async_trait::async_trait]
+impl BleDataObserver for MqttService {
+    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Vec<u8>) {
+        // Only process manufacturer ID 0xFFFF (65535)
+        if manufacturer_id != 0xFFFF {
+            return;
+        }
+
+        info!(
+            "Received sensor data from {} (mfg_id: 0x{:04X}): {} bytes",
+            id,
+            manufacturer_id,
+            data.len()
+        );
+
+        // Parse the sensor data into SensorReadings
+        match SensorReadings::from_manufacturer_data(&data) {
+            Some(readings) => {
+                let payload = readings.to_json();
+                let topic = "living_room/air_quality/data";
+
+                if let Err(e) = self
+                    .send_message(topic, payload.as_bytes(), QoS::AtLeastOnce)
+                    .await
+                {
+                    error!("Failed to publish sensor data to MQTT: {:?}", e);
+                } else {
+                    info!("Published sensor data to {}: {}", topic, payload);
+                }
+            }
+            None => {
+                error!(
+                    "Failed to parse sensor data from device {}: {} bytes",
+                    id,
+                    data.len()
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod mqtt_service_tests {
-    use super::*;
-
     #[tokio::test]
     async fn test_mqtt_service_creation() {
         // Note: This test requires a running MQTT broker
