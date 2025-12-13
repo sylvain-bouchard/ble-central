@@ -14,7 +14,20 @@
       "env": {
         "RUST_BACKTRACE": "1"
       }
-},
+    },
+    {
+      "name": "Remote Debug Rust on Raspberry Pi",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/ble-central-gateway",
+      "initCommands": [
+        "target create ${workspaceFolder}/target/debug/ble-central-gateway",
+        "gdb-remote 192.168.0.36:2345"
+      ],
+      "sourceMap": {
+        "/home/pi/ble-central": "${workspaceFolder}"
+      }
+    },
     {
       "name": "Debug Rust Tests",
       "type": "lldb",
