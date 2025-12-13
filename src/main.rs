@@ -1,14 +1,10 @@
 use std::error::Error;
-use std::sync::Arc;
 
-use api::vent::vent_controller::VentApiController;
 use api::vent::vent_routes::build_router;
-use services::ble_service::BleService;
-use services::vent_service::VentService;
-use state::ApplicationState;
 use tracing_subscriber;
 
 mod api;
+mod application;
 mod domain;
 mod services;
 mod state;
@@ -20,16 +16,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let ble_service = BleService::new().await;
-    let vent_service = Arc::new(VentService::new(ble_service));
-    let vent_api_controller = Arc::new(VentApiController::new());
+    let application =
+        application::Application::new("192.168.0.36", 1883, "ble_to_mqtt_bridge", "0.0.0.0:8080")
+            .await?;
 
-    let application_state = ApplicationState {
-        vent_service,
-        vent_api_controller,
-    };
-
-    let address: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
+    let address: std::net::SocketAddr = application.listen_address().parse().unwrap();
 
     let listener = tokio::net::TcpListener::bind(address).await?;
     let local_address = listener.local_addr()?;
@@ -38,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("🚀 Vent API running on {local_address}");
     println!("API docs are accessible at {local_address}/docs");
 
-    axum::serve(listener, build_router(application_state)).await?;
+    axum::serve(listener, build_router(application.state().clone())).await?;
 
     Ok(())
 }
