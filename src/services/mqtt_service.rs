@@ -25,13 +25,8 @@ impl MqttService {
         // Spawn a task to handle MQTT events
         tokio::spawn(async move {
             loop {
-                match eventloop.poll().await {
-                    Ok(event) => {
-                        info!("MQTT Event: {:?}", event);
-                    }
-                    Err(e) => {
-                        error!("MQTT error: {:?}", e);
-                    }
+                if let Err(e) = eventloop.poll().await {
+                    error!("MQTT error: {:?}", e);
                 }
             }
         });

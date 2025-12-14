@@ -3,7 +3,7 @@ use std::sync::Arc;
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, WriteType};
 use btleplug::platform::{Adapter, Manager, Peripheral, PeripheralId};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use futures::stream::StreamExt;
 
@@ -107,7 +107,7 @@ impl BleService {
                         id,
                         manufacturer_data,
                     } => {
-                        info!("Manufacturer data from {id}: data={:?}", manufacturer_data);
+                        debug!("Manufacturer data from {id}: data={:?}", manufacturer_data);
                         for (manufacturer_id, data) in manufacturer_data.iter() {
                             self_clone
                                 .notify_observers(id.to_string(), *manufacturer_id, data.clone())
