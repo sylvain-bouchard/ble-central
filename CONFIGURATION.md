@@ -1,12 +1,38 @@
 # Configuration Framework
 
-This application uses a hierarchical configuration system based on `config-rs` with environment-specific overrides.
+This application uses a hierarchical configuration system based on `config-rs` with environment-specific overrides and command-line support.
 
 ## Configuration Priority (Highest to Lowest)
 
 1. **Environment Variables** - Prefixed with `APP_` and using `__` as separator for nested keys
-2. **Environment-specific Config Files** - Loaded from `configuration/{APP_ENV}.toml`
-3. **Default Configuration** - Loaded from `configuration/default.toml`
+2. **Custom Config File** - Specified via `--config` command-line argument
+3. **Environment-specific Config Files** - Loaded from `configuration/{APP_ENV}.toml`
+4. **Default Configuration** - Loaded from `configuration/default.toml`
+
+## Command-Line Arguments
+
+```bash
+ble-central-gateway [OPTIONS]
+
+Options:
+  -c, --config <FILE>  Path to configuration file (overrides default locations)
+  -h, --help           Print help
+  -V, --version        Print version
+```
+
+### Examples
+
+Run with custom configuration file:
+
+```bash
+/usr/local/bin/ble-central-gateway --config /etc/ble-central-gateway/config.toml
+```
+
+Run with custom config and environment variable override:
+
+```bash
+APP_API__LOG_LEVEL=debug ./ble-central-gateway --config ./config/prod.toml
+```
 
 ## Configuration Structure
 
