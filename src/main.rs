@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use api::vent::vent_routes::build_router;
+use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
 mod api;
@@ -10,10 +11,23 @@ mod domain;
 mod services;
 mod state;
 
+/// BLE Central Gateway - Converts BLE sensor data to MQTT messages
+#[derive(Parser, Debug)]
+#[command(name = "ble-central-gateway")]
+#[command(about = "BLE to MQTT Bridge Gateway", long_about = None)]
+struct Args {
+    /// Path to configuration file (overrides default locations)
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    // Parse command-line arguments
+    let args = Args::parse();
+
     // Load configuration from files and environment variables
-    let config = configuration::Settings::from_env()?;
+    let config = configuration::Settings::from_env(args.config.as_deref())?;
 
     // Initialize tracing/logging with configured log level
     let env_filter =

@@ -35,17 +35,29 @@ impl Settings {
     ///
     /// Priority order (highest to lowest):
     /// 1. Environment variables (with APP_ prefix)
-    /// 2. Environment-specific config file (e.g., development.toml)
-    /// 3. Default configuration file (default.toml)
-    pub fn from_env() -> Result<Self, ConfigError> {
+    /// 2. Custom config file (if provided via config_path)
+    /// 3. Environment-specific config file (e.g., development.toml)
+    /// 4. Default configuration file (default.toml)
+    pub fn from_env(config_path: Option<&str>) -> Result<Self, ConfigError> {
         let env = env::var("APP_ENV").unwrap_or_else(|_| "development".to_string());
         let config_dir = "configuration";
 
-        let settings = Config::builder()
+        let mut builder = Config::builder()
             // Load default configuration
             .add_source(File::with_name(&format!("{}/default", config_dir)))
             // Load environment-specific config if it exists
-            .add_source(File::with_name(&format!("{}/{}", config_dir, env)).required(false))
+            .add_source(File::with_name(&format!("{}/{}", config_dir, env)).required(false));
+
+        // Load custom config file if provided
+        if let Some(path) = config_path {
+            let file_content = std::fs::read_to_string(path).map_err(|e| {
+                ConfigError::Message(format!("Failed to read config file '{}': {}", path, e))
+            })?;
+            builder = builder
+                .add_source(File::from_str(&file_content, config::FileFormat::Toml).required(true));
+        }
+
+        let settings = builder
             // Load from environment variables with APP_ prefix
             // Supports nested keys like APP_MQTT__BROKER
             .add_source(
@@ -57,6 +69,11 @@ impl Settings {
             .try_deserialize()?;
 
         Ok(settings)
+    }
+
+    /// Load configuration from environment (legacy method for backward compatibility)
+    pub fn from_env_legacy() -> Result<Self, ConfigError> {
+        Self::from_env(None)
     }
 
     /// Get the full listen address (host:port)
