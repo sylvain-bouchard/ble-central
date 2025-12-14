@@ -1,0 +1,34 @@
+[Unit]
+Description=BLE Central Gateway - MQTT Bridge
+Documentation=https://github.com/sylvain-bouchard/ble-central
+After=network.target mqtt.service
+
+[Service]
+Type=simple
+User=ble-gateway
+Group=ble-gateway
+WorkingDirectory=/var/lib/ble-central-gateway
+
+# Start the service with custom config path
+ExecStart=/usr/local/bin/ble-central-gateway --config /etc/ble-central-gateway/config.toml
+
+# Set environment for log level and other overrides
+Environment="APP_ENV=production"
+Environment="RUST_LOG=info"
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=10
+
+# Resource limits
+LimitNOFILE=65536
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log/ble-central-gateway /var/lib/ble-central-gateway
+
+[Install]
+WantedBy=multi-user.target
