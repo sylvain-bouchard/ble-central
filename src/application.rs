@@ -22,12 +22,14 @@ impl Application {
         listen_address: &str,
     ) -> Result<Self, Box<dyn Error>> {
         let ble_service = BleService::new().await;
-        let vent_service = Arc::new(VentService::new(ble_service.clone()));
+        let vent_service = Arc::new(VentService::new(ble_service));
         let mqtt_service =
             Arc::new(MqttService::new(mqtt_broker, mqtt_port, mqtt_client_id).await?);
 
         // Register MQTT service as an observer to BLE service for sensor data
-        ble_service.register_observer(mqtt_service.clone()).await;
+        vent_service
+            .register_ble_observer(mqtt_service.clone())
+            .await;
 
         let vent_api_controller = Arc::new(VentApiController::new());
 

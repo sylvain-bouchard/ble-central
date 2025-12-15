@@ -1,5 +1,5 @@
 use crate::domain::vent::vent::VentStatus;
-use crate::services::ble_service::BleService;
+use crate::services::ble_service::{BleDataObserver, BleService};
 use btleplug::platform::{Adapter, Peripheral};
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,11 @@ impl VentService {
             vent_status: Arc::new(Mutex::new(VentStatus::Disconnected)),
             discovered_devices: Arc::new(Mutex::new(Vec::new())),
         }
+    }
+
+    /// Register a BLE data observer with the internal BLE service
+    pub async fn register_ble_observer(&self, observer: Arc<dyn BleDataObserver>) {
+        self.ble_service.register_observer(observer).await;
     }
 
     pub async fn initialize(&self) -> Result<(), VentError> {
