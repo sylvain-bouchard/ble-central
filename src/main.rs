@@ -30,8 +30,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let configuration = configuration::Settings::from_env(args.config.as_deref())?;
 
     // Initialize tracing/logging with configured log level
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&configuration.api.log_level));
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(&configuration.api.log_level));
 
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
@@ -66,7 +66,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("🚀 Vent API running on {local_address}");
     println!("API docs are accessible at {local_address}/docs");
     println!("Log level: {}", configuration.api.log_level);
-    println!("MQTT broker: {}:{}", configuration.mqtt.broker, configuration.mqtt.port);
+    println!(
+        "MQTT broker: {}:{}",
+        configuration.mqtt.broker, configuration.mqtt.port
+    );
     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 
     axum::serve(listener, build_router(application.state().clone())).await?;
