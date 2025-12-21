@@ -93,11 +93,11 @@ impl BleDataObserver for MqttService {
                 let payload = readings.to_json();
                 let topic = "living_room/air_quality/data";
 
-                if let Err(e) = self
+                if let Err(error) = self
                     .send_message(topic, payload.as_bytes(), QoS::AtLeastOnce)
                     .await
                 {
-                    error!("Failed to publish sensor data to MQTT: {:?}", e);
+                    error!("Failed to publish sensor data to MQTT: {:?}", error);
                 } else {
                     info!("Published sensor data to {}: {}", topic, payload);
                 }
