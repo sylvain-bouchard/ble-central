@@ -50,6 +50,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
+    if (configuration.ble.scan_auto_start.unwrap_or(false)) {
+        tracing::info!("Starting BLE scan as per configuration");
+        application.state.vent_service.initialize().await?;
+    } else {
+        tracing::info!("BLE scan auto-start is disabled in configuration");
+    }
+
     let address: std::net::SocketAddr = application.listen_address().parse().unwrap();
 
     let listener = tokio::net::TcpListener::bind(address).await?;

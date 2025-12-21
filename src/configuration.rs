@@ -28,6 +28,7 @@ pub struct MqttConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BleConfig {
     pub enable_scan: bool,
+    pub scan_auto_start: Option<bool>,
 }
 
 impl Settings {
@@ -100,7 +101,7 @@ mod tests {
                 client_id: "test".to_string(),
                 keep_alive_secs: 5,
             },
-            ble: BleConfig { enable_scan: true },
+            ble: BleConfig { enable_scan: true, scan_auto_start: Some(true)},
         };
 
         assert_eq!(settings.listen_address(), "127.0.0.1:8080");
