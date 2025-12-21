@@ -23,13 +23,9 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // Parse command-line arguments
     let args = Args::parse();
-
-    // Load configuration from files and environment variables
     let configuration = configuration::Settings::from_env(args.config.as_deref())?;
 
-    // Initialize tracing/logging with configured log level
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(&configuration.api.log_level));
 
@@ -41,7 +37,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string())
     );
 
-    // Create application with configuration
     let application = application::Application::new(
         &configuration.mqtt.broker,
         configuration.mqtt.port,
