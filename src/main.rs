@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    if (configuration.ble.scan_auto_start.unwrap_or(false)) {
+    if configuration.ble.scan_auto_start.unwrap_or(false) {
         tracing::info!("Starting BLE scan as per configuration");
         application.state.vent_service.initialize().await?;
     } else {

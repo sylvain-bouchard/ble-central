@@ -35,7 +35,6 @@ impl Application {
 
         let state = ApplicationState {
             vent_service,
-            mqtt_service,
             vent_api_controller,
         };
 

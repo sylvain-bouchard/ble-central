@@ -51,6 +51,7 @@ impl MqttService {
     }
 
     /// Send a string message to the specified topic
+    #[allow(dead_code)]
     pub async fn send_string_message(
         &self,
         topic: &str,
@@ -61,6 +62,7 @@ impl MqttService {
     }
 
     /// Send a JSON message to the specified topic
+    #[allow(dead_code)]
     pub async fn send_json_message(
         &self,
         topic: &str,

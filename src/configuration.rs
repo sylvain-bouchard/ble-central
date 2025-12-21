@@ -72,11 +72,6 @@ impl Settings {
         Ok(settings)
     }
 
-    /// Load configuration from environment (legacy method for backward compatibility)
-    pub fn from_env_legacy() -> Result<Self, ConfigError> {
-        Self::from_env(None)
-    }
-
     /// Get the full listen address (host:port)
     pub fn listen_address(&self) -> String {
         format!("{}:{}", self.api.host, self.api.port)
