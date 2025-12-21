@@ -4,7 +4,7 @@ use btleplug::platform::{Adapter, Peripheral};
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info};
 
 // BLE Characteristic UUIDs
@@ -23,7 +23,7 @@ pub struct VentService {
     ble_service: BleService,
     scanning_adapter: Arc<Mutex<Option<Adapter>>>,
     connected_device: Arc<Mutex<Option<Peripheral>>>,
-    vent_status: Arc<Mutex<VentStatus>>,
+    vent_status: Arc<RwLock<VentStatus>>,
     discovered_devices: Arc<Mutex<Vec<DiscoveredDevice>>>,
 }
 
@@ -43,7 +43,7 @@ impl VentService {
             ble_service,
             scanning_adapter: Arc::new(Mutex::new(None)),
             connected_device: Arc::new(Mutex::new(None)),
-            vent_status: Arc::new(Mutex::new(VentStatus::Disconnected)),
+            vent_status: Arc::new(RwLock::new(VentStatus::Disconnected)),
             discovered_devices: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -136,7 +136,7 @@ impl VentService {
                                 0x02 => VentStatus::Closed,
                                 _ => VentStatus::Disconnected,
                             };
-                            *vent_status_clone.lock().await = new_status;
+                            *vent_status_clone.write().await = new_status;
                         }
                     }
                 }
@@ -144,27 +144,29 @@ impl VentService {
         });
 
         // Stop scanning after successfully connecting
-        if let Some(adapter) = self.scanning_adapter.lock().await.take() {
+        let adapter_opt = self.scanning_adapter.lock().await.take();
+        if let Some(adapter) = adapter_opt {
             let _ = self.ble_service.stop_scan(&adapter).await;
         }
 
         *self.connected_device.lock().await = Some(peripheral);
-        *self.vent_status.lock().await = VentStatus::Connected;
+        *self.vent_status.write().await = VentStatus::Connected;
 
         Ok(())
     }
 
     /// Open the vent by sending a command to the BLE device
     pub async fn open_vent(&self) -> Result<(), VentError> {
-        let device = self.connected_device.lock().await;
-
-        let peripheral = device.as_ref().ok_or(VentError::NotConnected)?;
+        let peripheral = {
+            let device = self.connected_device.lock().await;
+            device.as_ref().ok_or(VentError::NotConnected)?.clone()
+        };
 
         // Write "open" status as single byte: 0x01 to the status characteristic
         // Device will receive this and update its state
         // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(peripheral, STATUS_UUID, &[0x01])
+            .write_characteristic(&peripheral, STATUS_UUID, &[0x01])
             .await?;
 
         Ok(())
@@ -172,15 +174,16 @@ impl VentService {
 
     /// Close the vent by sending a command to the BLE device
     pub async fn close_vent(&self) -> Result<(), VentError> {
-        let device = self.connected_device.lock().await;
-
-        let peripheral = device.as_ref().ok_or(VentError::NotConnected)?;
+        let peripheral = {
+            let device = self.connected_device.lock().await;
+            device.as_ref().ok_or(VentError::NotConnected)?.clone()
+        };
 
         // Write "close" status as single byte: 0x02 to the status characteristic
         // Device will receive this and update its state
         // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(peripheral, STATUS_UUID, &[0x02])
+            .write_characteristic(&peripheral, STATUS_UUID, &[0x02])
             .await?;
 
         Ok(())
@@ -189,23 +192,24 @@ impl VentService {
     /// Get the current vent status (from cached notifications)
     pub async fn get_vent_status(&self) -> VentStatus {
         // Return the cached status, which is updated by notifications
-        self.vent_status.lock().await.clone()
+        *self.vent_status.read().await
     }
 
     /// Disconnect from the device
     pub async fn disconnect(&self) -> Result<(), VentError> {
-        let mut device = self.connected_device.lock().await;
+        let peripheral_opt = self.connected_device.lock().await.take();
 
-        if let Some(peripheral) = device.take() {
+        if let Some(peripheral) = peripheral_opt {
             self.ble_service.disconnect_device(&peripheral).await?;
         }
 
         // Also stop scanning if it's still active
-        if let Some(adapter) = self.scanning_adapter.lock().await.take() {
+        let adapter_opt = self.scanning_adapter.lock().await.take();
+        if let Some(adapter) = adapter_opt {
             let _ = self.ble_service.stop_scan(&adapter).await;
         }
 
-        *self.vent_status.lock().await = VentStatus::Disconnected;
+        *self.vent_status.write().await = VentStatus::Disconnected;
 
         Ok(())
     }
