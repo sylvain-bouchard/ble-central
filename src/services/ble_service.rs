@@ -42,16 +42,16 @@ impl Clone for BleService {
 }
 
 impl BleService {
-    pub async fn new() -> Self {
-        let manager = Manager::new().await.unwrap();
-        let adapters = manager.adapters().await.unwrap();
+    pub async fn new() -> Result<Self, btleplug::Error> {
+        let manager = Manager::new().await?;
+        let adapters = manager.adapters().await?;
         let observers = Arc::new(RwLock::new(Vec::new()));
 
-        BleService {
+        Ok(BleService {
             manager,
             adapters,
             observers,
-        }
+        })
     }
 
     #[allow(dead_code)]

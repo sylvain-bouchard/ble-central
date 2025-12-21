@@ -158,11 +158,7 @@ impl VentService {
     pub async fn open_vent(&self) -> Result<(), VentError> {
         let device = self.connected_device.lock().await;
 
-        if device.is_none() {
-            return Err(VentError::NotConnected);
-        }
-
-        let peripheral = device.as_ref().unwrap();
+        let peripheral = device.as_ref().ok_or(VentError::NotConnected)?;
 
         // Write "open" status as single byte: 0x01 to the status characteristic
         // Device will receive this and update its state
@@ -178,11 +174,7 @@ impl VentService {
     pub async fn close_vent(&self) -> Result<(), VentError> {
         let device = self.connected_device.lock().await;
 
-        if device.is_none() {
-            return Err(VentError::NotConnected);
-        }
-
-        let peripheral = device.as_ref().unwrap();
+        let peripheral = device.as_ref().ok_or(VentError::NotConnected)?;
 
         // Write "close" status as single byte: 0x02 to the status characteristic
         // Device will receive this and update its state

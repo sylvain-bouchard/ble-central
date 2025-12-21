@@ -5,7 +5,7 @@ use crate::state::ApplicationState;
 use std::sync::Arc;
 
 async fn create_test_app_state() -> ApplicationState {
-    let ble_service = BleService::new().await;
+    let ble_service = BleService::new().await.expect("Failed to create BleService");
     let vent_service = VentService::new(ble_service);
 
     ApplicationState {

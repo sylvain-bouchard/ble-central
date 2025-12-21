@@ -2,7 +2,9 @@ use super::{VentError, VentService, VentStatus};
 use crate::services::ble_service::BleService;
 
 async fn create_test_vent_service() -> VentService {
-    let ble_service = BleService::new().await;
+    let ble_service = BleService::new()
+        .await
+        .expect("Failed to create BleService");
     VentService::new(ble_service)
 }
 

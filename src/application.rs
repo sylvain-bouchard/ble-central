@@ -21,7 +21,7 @@ impl Application {
         mqtt_client_id: &str,
         listen_address: &str,
     ) -> Result<Self, Box<dyn Error>> {
-        let ble_service = BleService::new().await;
+        let ble_service = BleService::new().await?;
         let vent_service = Arc::new(VentService::new(ble_service));
         let mqtt_service =
             Arc::new(MqttService::new(mqtt_broker, mqtt_port, mqtt_client_id).await?);
