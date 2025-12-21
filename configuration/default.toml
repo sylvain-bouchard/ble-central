@@ -11,3 +11,4 @@ keep_alive_secs = 5
 
 [ble]
 enable_scan = true
+scan_auto_start = true
