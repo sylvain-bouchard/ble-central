@@ -3,7 +3,7 @@ use std::sync::Arc;
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, WriteType};
 use btleplug::platform::{Adapter, Manager, Peripheral, PeripheralId};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use futures::stream::StreamExt;
 
@@ -12,7 +12,7 @@ use tokio::time::{sleep, timeout, Duration};
 
 #[async_trait::async_trait]
 pub trait BleDataObserver: Send + Sync {
-    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Vec<u8>);
+    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Arc<[u8]>);
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -204,12 +204,29 @@ impl BleService {
     async fn notify_observers(&self, id: String, manufacturer_id: u16, data: Vec<u8>) {
         let observers = self.observers.read().await.clone();
 
+        if observers.is_empty() {
+            return;
+        }
+
+        let data: Arc<[u8]> = data.into();
+
         for observer in observers {
             let id = id.clone();
-            let data = data.clone();
+            let data = Arc::clone(&data);
+            let observer = Arc::clone(&observer);
 
             tokio::spawn(async move {
-                observer.on_sensor_data(id, manufacturer_id, data).await;
+                if let Err(e) = tokio::time::timeout(
+                    Duration::from_secs(5),
+                    observer.on_sensor_data(id.clone(), manufacturer_id, data),
+                )
+                .await
+                {
+                    warn!(
+                        "Observer timed out processing sensor data for device {}: {:?}",
+                        id, e
+                    );
+                }
             });
         }
     }

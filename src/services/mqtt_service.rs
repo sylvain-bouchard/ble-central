@@ -1,4 +1,5 @@
 use rumqttc::{AsyncClient, MqttOptions, QoS};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info};
 
@@ -76,7 +77,7 @@ impl MqttService {
 
 #[async_trait::async_trait]
 impl BleDataObserver for MqttService {
-    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Vec<u8>) {
+    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Arc<[u8]>) {
         // Only process manufacturer ID 0xFFFF (65535)
         if manufacturer_id != 0xFFFF {
             return;
