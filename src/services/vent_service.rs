@@ -60,16 +60,16 @@ impl VentService {
             .get_default_adapter()
             .ok_or(VentError::NoAdapter)?;
 
-        info!("Starting BLE scan with adapter");
+        debug!("Starting BLE scan with adapter");
         let rx = self.ble_service.start_scan(&adapter).await?;
-        info!("BLE scan started, got receiver channel");
+        debug!("BLE scan started, got receiver channel");
 
         *self.scanning_adapter.lock().await = Some(adapter);
 
         // Spawn a task to collect discovered devices with names from advertisement
         let discovered_devices = Arc::clone(&self.discovered_devices);
         tokio::spawn(async move {
-            info!("Device collector task started");
+            debug!("Device collector task started");
             let mut rx = rx;
             let mut device_count = 0;
             while let Some(device_info) = rx.recv().await {
@@ -94,13 +94,13 @@ impl VentService {
                     debug!("Device {} already in list, skipping", device_info.id);
                 }
             }
-            info!(
+            debug!(
                 "Device collector task ended (received {} devices total)",
                 device_count
             );
         });
 
-        info!("Initialize completed");
+        debug!("Initialize completed");
         Ok(())
     }
 
