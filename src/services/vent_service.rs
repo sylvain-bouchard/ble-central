@@ -55,7 +55,7 @@ impl VentService {
     }
 
     pub async fn initialize(&self) -> Result<(), VentError> {
-        info!("Initializing BLE scan");
+        debug!("Initializing BLE scan");
         let adapter = self
             .ble_service
             .get_default_adapter()
