@@ -1,7 +1,7 @@
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::domain::sensor::{SensorData, SensorReadings};
 use crate::services::ble_service::BleDataObserver;
@@ -23,11 +23,41 @@ impl MqttService {
 
         let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
 
-        // Spawn a task to handle MQTT events
+        // Spawn a task to handle MQTT events with error throttling
         tokio::spawn(async move {
+            let mut last_error: Option<String> = None;
+            let mut consecutive_count = 0u32;
+
             loop {
                 if let Err(e) = eventloop.poll().await {
-                    error!("MQTT error: {:?}", e);
+                    let error_msg = format!("{:?}", e);
+
+                    // Check if this is the same error as before
+                    if last_error.as_ref() == Some(&error_msg) {
+                        consecutive_count += 1;
+
+                        // Log only on first occurrence and then every 10th occurrence
+                        if consecutive_count == 10 {
+                            warn!(
+                                "MQTT error: {} (repeated {} times, suppressing further messages)",
+                                error_msg, consecutive_count
+                            );
+                            consecutive_count = 0; // Reset counter after logging
+                        }
+                    } else {
+                        // New error type
+                        if let Some(prev_error) = &last_error {
+                            if consecutive_count > 0 {
+                                info!(
+                                    "Previous MQTT error resolved after {} occurrences",
+                                    consecutive_count + 1
+                                );
+                            }
+                        }
+                        error!("MQTT error: {}", error_msg);
+                        last_error = Some(error_msg);
+                        consecutive_count = 0;
+                    }
                 }
             }
         });
