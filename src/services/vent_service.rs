@@ -3,6 +3,7 @@ use crate::services::ble_service::{BleDataObserver, BleService};
 use btleplug::platform::{Adapter, Peripheral};
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info};
@@ -24,7 +25,7 @@ pub struct VentService {
     scanning_adapter: Arc<Mutex<Option<Adapter>>>,
     connected_device: Arc<Mutex<Option<Peripheral>>>,
     vent_status: Arc<RwLock<VentStatus>>,
-    discovered_devices: Arc<Mutex<Vec<DiscoveredDevice>>>,
+    discovered_devices: Arc<Mutex<HashMap<String, DiscoveredDevice>>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -44,7 +45,7 @@ impl VentService {
             scanning_adapter: Arc::new(Mutex::new(None)),
             connected_device: Arc::new(Mutex::new(None)),
             vent_status: Arc::new(RwLock::new(VentStatus::Disconnected)),
-            discovered_devices: Arc::new(Mutex::new(Vec::new())),
+            discovered_devices: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -81,17 +82,20 @@ impl VentService {
 
                 let mut devices = discovered_devices.lock().await;
 
-                // Check if device already exists
-                if !devices.iter().any(|d| d.id == device_info.id) {
+                let device_id = device_info.id.clone();
+                if !devices.contains_key(&device_id) {
                     // Device info already includes name and address from advertisement
-                    devices.push(DiscoveredDevice {
-                        id: device_info.id.clone(),
-                        address: device_info.address.clone(),
-                        name: device_info.name.clone(),
-                    });
-                    info!("Added device to list (total: {})", devices.len());
+                    devices.insert(
+                        device_id.clone(),
+                        DiscoveredDevice {
+                            id: device_info.id.clone(),
+                            address: device_info.address.clone(),
+                            name: device_info.name.clone(),
+                        },
+                    );
+                    debug!("Added device to list (total: {})", devices.len());
                 } else {
-                    debug!("Device {} already in list, skipping", device_info.id);
+                    debug!("Device {} already in list, skipping", device_id);
                 }
             }
             debug!(
@@ -255,18 +259,20 @@ impl VentService {
 
     /// Get list of discovered devices
     pub async fn get_discovered_devices(&self) -> Vec<DiscoveredDevice> {
-        let devices = self.discovered_devices.lock().await.clone();
+        let devices = self.discovered_devices.lock().await;
+        let device_list: Vec<DiscoveredDevice> = devices.values().cloned().collect();
+
         info!(
             "get_discovered_devices called, returning {} devices",
-            devices.len()
+            device_list.len()
         );
-        for device in &devices {
+        for device in &device_list {
             debug!(
                 "Device: id={}, name={:?}, address={:?}",
                 device.id, device.name, device.address
             );
         }
-        devices
+        device_list
     }
 }
 
