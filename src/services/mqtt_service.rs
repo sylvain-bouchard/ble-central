@@ -46,13 +46,11 @@ impl MqttService {
                         }
                     } else {
                         // New error type
-                        if let Some(prev_error) = &last_error {
-                            if consecutive_count > 0 {
-                                info!(
-                                    "Previous MQTT error resolved after {} occurrences",
-                                    consecutive_count + 1
-                                );
-                            }
+                        if last_error.is_some() && consecutive_count > 0 {
+                            info!(
+                                "Previous MQTT error resolved after {} occurrences",
+                                consecutive_count + 1
+                            );
                         }
                         error!("MQTT error: {}", error_msg);
                         last_error = Some(error_msg);
