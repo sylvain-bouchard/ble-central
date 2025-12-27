@@ -27,6 +27,7 @@ impl MqttService {
         tokio::spawn(async move {
             let mut last_error: Option<String> = None;
             let mut consecutive_count = 0u32;
+            let mut suppressed = false;
 
             loop {
                 if let Err(e) = eventloop.poll().await {
@@ -36,13 +37,13 @@ impl MqttService {
                     if last_error.as_ref() == Some(&error_msg) {
                         consecutive_count += 1;
 
-                        // Log only on first occurrence and then every 10th occurrence
-                        if consecutive_count == 10 {
+                        // Log warning only once when hitting 10 repetitions
+                        if consecutive_count == 10 && !suppressed {
                             warn!(
                                 "MQTT error: {} (repeated {} times, suppressing further messages)",
                                 error_msg, consecutive_count
                             );
-                            consecutive_count = 0; // Reset counter after logging
+                            suppressed = true;
                         }
                     } else {
                         // New error type
@@ -55,6 +56,7 @@ impl MqttService {
                         error!("MQTT error: {}", error_msg);
                         last_error = Some(error_msg);
                         consecutive_count = 0;
+                        suppressed = false;
                     }
                 }
             }
