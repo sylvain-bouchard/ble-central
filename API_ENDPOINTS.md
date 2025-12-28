@@ -230,6 +230,143 @@ http://localhost:8080
 
 ---
 
+## MQTT Integration
+
+The gateway automatically publishes sensor data from BLE devices to an MQTT broker. Additionally, it provides API endpoints for MQTT operations.
+
+### 7. Get MQTT Status
+
+**Endpoint:** `GET /api/mqtt/status`
+
+**Description:** Check the status of the MQTT connection and service.
+
+**Response (Success - 200):**
+
+```json
+{
+  "status": "connected",
+  "message": "MQTT service is active and monitoring sensor data"
+}
+```
+
+---
+
+### 8. Manually Publish Message
+
+**Endpoint:** `POST /api/mqtt/publish`
+
+**Description:** Manually publish a text message to a specific MQTT topic.
+
+**Request Body:**
+
+```json
+{
+  "topic": "test/topic",
+  "message": "Hello MQTT",
+  "qos": 0
+}
+```
+
+**QoS Levels:**
+
+- `0`: At most once (fire and forget)
+- `1`: At least once (acknowledged delivery)
+- `2`: Exactly once (assured delivery)
+
+**Response (Success - 200):**
+
+```json
+{
+  "status": "published",
+  "message": "Message published to topic 'test/topic'",
+  "topic": "test/topic",
+  "qos": 0
+}
+```
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/api/mqtt/publish \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "test/topic", "message": "Hello World", "qos": 1}'
+```
+
+---
+
+### 9. Publish JSON Data
+
+**Endpoint:** `POST /api/mqtt/publish/json`
+
+**Description:** Publish JSON-formatted data to a specific MQTT topic.
+
+**Request Body:**
+
+```json
+{
+  "topic": "sensor/data",
+  "qos": 1,
+  "payload": {
+    "temperature": 25.5,
+    "humidity": 60.0,
+    "timestamp": "2025-12-27T12:00:00Z"
+  }
+}
+```
+
+**Response (Success - 200):**
+
+```json
+{
+  "status": "published",
+  "message": "JSON published to topic 'sensor/data'",
+  "topic": "sensor/data",
+  "qos": 1
+}
+```
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/api/mqtt/publish/json \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "living_room/air_quality/data",
+    "qos": 1,
+    "payload": {
+      "temperature": 22.5,
+      "humidity": 55.0,
+      "co2": 450,
+      "pm2_5": 12,
+      "pm10": 18,
+      "tvoc": 125
+    }
+  }'
+```
+
+---
+
+## Automatic Sensor Data Publishing
+
+The gateway automatically publishes sensor data from BLE devices with manufacturer ID `0xFFFF` to the MQTT topic `living_room/air_quality/data`.
+
+**Published Data Format:**
+
+```json
+{
+  "temperature": 25.8,
+  "humidity": 77.2,
+  "co2": 1286,
+  "pm2_5": 1800,
+  "pm10": 2314,
+  "tvoc": 2828
+}
+```
+
+This data is published whenever the gateway receives manufacturer data advertisements from connected BLE devices.
+
+---
+
 ## Error Handling
 
 All error responses follow this format:
@@ -263,9 +400,12 @@ Common error scenarios:
 
 ## Future Enhancements
 
-- [ ] Discover devices endpoint to list available devices during scan
+- [x] MQTT service integration with automatic sensor data publishing
+- [x] MQTT status and manual publish endpoints
 - [ ] Subscribe to device discovery events via WebSocket
 - [ ] Batch control operations on multiple devices
 - [ ] Device pairing and security features
 - [ ] RSSI (signal strength) monitoring
 - [ ] Automatic reconnection on disconnection
+- [ ] MQTT subscription endpoints (receive messages from topics)
+- [ ] Configurable MQTT topics via API

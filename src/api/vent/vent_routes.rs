@@ -9,6 +9,7 @@ use super::vent_controller::{
     self, ConnectRequest, ConnectResponse, DiscoveredDevicesResponse, ErrorResponse,
     MessageResponse, ScanRequest, VentStatusResponse,
 };
+use crate::api::mqtt::mqtt_routes;
 use crate::state::ApplicationState;
 
 pub fn build_router(state: ApplicationState) -> Router {
@@ -23,6 +24,8 @@ pub fn build_router(state: ApplicationState) -> Router {
         .route("/api/vent/close", post(close_vent))
         .route("/api/vent/status", get(vent_status))
         .route("/api/vent/disconnect", post(vent_disconnect))
+        // MQTT operations
+        .nest("/api/mqtt", mqtt_routes::mqtt_routes())
         .with_state(state)
 }
 

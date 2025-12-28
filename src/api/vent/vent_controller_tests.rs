@@ -1,5 +1,6 @@
 use crate::api::vent::vent_controller::{self, ConnectRequest, ScanRequest};
 use crate::services::ble_service::BleService;
+use crate::services::mqtt_service::MqttService;
 use crate::services::vent_service::VentService;
 use crate::state::ApplicationState;
 use std::sync::Arc;
@@ -10,8 +11,22 @@ async fn create_test_app_state() -> ApplicationState {
         .expect("Failed to create BleService");
     let vent_service = VentService::new(ble_service);
 
+    // Try to create MQTT service, but if it fails (no broker), use a test instance
+    // In a real test environment, you'd use a mock MQTT service
+    let mqtt_service = match MqttService::new("localhost", 1883, "test-client").await {
+        Ok(service) => service,
+        Err(_) => {
+            // Fallback: create with a non-existent broker for testing
+            // The service will still be created but will log connection errors
+            MqttService::new("127.0.0.1", 18830, "test-fallback")
+                .await
+                .expect("Failed to create fallback MQTT service")
+        }
+    };
+
     ApplicationState {
         vent_service: Arc::new(vent_service),
+        mqtt_service: Arc::new(mqtt_service),
     }
 }
 
