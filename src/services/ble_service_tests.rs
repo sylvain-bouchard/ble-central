@@ -62,3 +62,23 @@ async fn test_ble_service_multiple_instances() {
     // Both should have same adapter count
     assert_eq!(adapters1.len(), adapters2.len());
 }
+
+#[tokio::test]
+async fn test_uuid_validation() {
+    use uuid::Uuid;
+
+    // Valid UUID should parse
+    let valid_uuid = "0000180b-0000-1000-8000-00805f9b34fb";
+    assert!(Uuid::parse_str(valid_uuid).is_ok());
+
+    // Invalid UUIDs should fail
+    let invalid_uuids = vec!["not-a-uuid", "0000180b", "0000180b-0000-1000-8000", ""];
+
+    for invalid in invalid_uuids {
+        assert!(
+            Uuid::parse_str(invalid).is_err(),
+            "Should reject invalid UUID: {}",
+            invalid
+        );
+    }
+}

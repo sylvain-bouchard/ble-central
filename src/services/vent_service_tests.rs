@@ -1,5 +1,6 @@
-use super::{VentError, VentService, VentStatus};
+use super::{VentError, VentService, VentStatus, STATUS_UUID};
 use crate::services::ble_service::BleService;
+use uuid::Uuid;
 
 async fn create_test_vent_service() -> VentService {
     let ble_service = BleService::new()
@@ -135,4 +136,14 @@ async fn test_close_vent_without_connection_fails() {
         Err(VentError::NotConnected) => assert!(true),
         _ => panic!("Should return NotConnected error when not connected"),
     }
+}
+
+#[tokio::test]
+async fn test_status_uuid_is_valid() {
+    // Verify STATUS_UUID is a valid UUID
+    assert!(
+        Uuid::parse_str(STATUS_UUID).is_ok(),
+        "STATUS_UUID '{}' should be a valid UUID",
+        STATUS_UUID
+    );
 }

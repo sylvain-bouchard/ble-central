@@ -9,6 +9,7 @@ use futures::stream::StreamExt;
 
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::{sleep, timeout, Duration};
+use uuid::Uuid;
 
 #[async_trait::async_trait]
 pub trait BleDataObserver: Send + Sync {
@@ -237,15 +238,23 @@ impl BleService {
         device: &Peripheral,
         char_uuid: &str,
     ) -> Result<Vec<u8>, btleplug::Error> {
+        // Validate UUID format
+        let parsed_uuid = Uuid::parse_str(char_uuid).map_err(|e| {
+            btleplug::Error::Other(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid UUID format '{}': {}", char_uuid, e),
+            )))
+        })?;
+
         let characteristics = device.characteristics();
         for characteristic in characteristics {
-            if characteristic.uuid.to_string() == char_uuid {
+            if characteristic.uuid == parsed_uuid {
                 return device.read(&characteristic).await;
             }
         }
         Err(btleplug::Error::Other(Box::new(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "Characteristic not found",
+            format!("Characteristic with UUID '{}' not found", char_uuid),
         ))))
     }
 
@@ -256,11 +265,18 @@ impl BleService {
         characteristic_uuid: &str,
         data: &[u8],
     ) -> Result<(), btleplug::Error> {
-        // Match characteristic by UUID string
+        // Validate UUID format
+        let parsed_uuid = Uuid::parse_str(characteristic_uuid).map_err(|e| {
+            btleplug::Error::Other(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid UUID format '{}': {}", characteristic_uuid, e),
+            )))
+        })?;
+
         let characteristics = device.characteristics();
 
         for characteristic in characteristics {
-            if characteristic.uuid.to_string() == characteristic_uuid {
+            if characteristic.uuid == parsed_uuid {
                 device
                     .write(&characteristic, data, WriteType::WithResponse)
                     .await?;
@@ -269,7 +285,7 @@ impl BleService {
         }
         Err(btleplug::Error::Other(Box::new(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "Characteristic not found",
+            format!("Characteristic with UUID '{}' not found", characteristic_uuid),
         ))))
     }
 
@@ -279,17 +295,25 @@ impl BleService {
         device: &Peripheral,
         characteristic_uuid: &str,
     ) -> Result<(), btleplug::Error> {
+        // Validate UUID format
+        let parsed_uuid = Uuid::parse_str(characteristic_uuid).map_err(|e| {
+            btleplug::Error::Other(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid UUID format '{}': {}", characteristic_uuid, e),
+            )))
+        })?;
+
         let characteristics = device.characteristics();
 
         for characteristic in characteristics {
-            if characteristic.uuid.to_string() == characteristic_uuid {
+            if characteristic.uuid == parsed_uuid {
                 device.subscribe(&characteristic).await?;
                 return Ok(());
             }
         }
         Err(btleplug::Error::Other(Box::new(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "Characteristic not found",
+            format!("Characteristic with UUID '{}' not found", characteristic_uuid),
         ))))
     }
 

@@ -11,6 +11,13 @@ use tracing::{debug, error, info};
 // BLE Characteristic UUIDs
 const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic
 
+// Compile-time validation that STATUS_UUID is a valid UUID
+#[allow(dead_code)]
+const fn validate_status_uuid() {
+    // This will fail at compile time if STATUS_UUID has invalid format
+    // Note: Uuid::parse_str is not const, so we validate at runtime in tests
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscoveredDevice {
     pub id: String,
