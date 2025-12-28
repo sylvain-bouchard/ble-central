@@ -7,7 +7,7 @@ use super::BleService;
 async fn test_ble_service_creation() {
     // This test verifies BleService can be instantiated
     // In a real scenario with mocking, you'd test actual BLE operations
-    let service = BleService::new()
+    let service = BleService::new(5)
         .await
         .expect("Failed to create BleService");
 
@@ -18,7 +18,7 @@ async fn test_ble_service_creation() {
 
 #[tokio::test]
 async fn test_get_default_adapter() {
-    let service = BleService::new()
+    let service = BleService::new(5)
         .await
         .expect("Failed to create BleService");
 
@@ -39,7 +39,7 @@ async fn test_get_default_adapter() {
 
 #[tokio::test]
 async fn test_list_adapters() {
-    let service = BleService::new()
+    let service = BleService::new(5)
         .await
         .expect("Failed to create BleService");
     let adapters = service.list_adapters();
@@ -49,10 +49,10 @@ async fn test_list_adapters() {
 
 #[tokio::test]
 async fn test_ble_service_multiple_instances() {
-    let service1 = BleService::new()
+    let service1 = BleService::new(5)
         .await
         .expect("Failed to create BleService");
-    let service2 = BleService::new()
+    let service2 = BleService::new(5)
         .await
         .expect("Failed to create BleService");
 

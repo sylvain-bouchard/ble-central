@@ -29,6 +29,8 @@ pub struct MqttConfig {
 pub struct BleConfig {
     pub enable_scan: bool,
     pub scan_auto_start: Option<bool>,
+    pub connection_timeout_secs: u64,
+    pub observer_timeout_secs: u64,
 }
 
 impl Settings {
@@ -96,7 +98,12 @@ mod tests {
                 client_id: "test".to_string(),
                 keep_alive_secs: 5,
             },
-            ble: BleConfig { enable_scan: true, scan_auto_start: Some(true)},
+            ble: BleConfig {
+                enable_scan: true,
+                scan_auto_start: Some(true),
+                connection_timeout_secs: 10,
+                observer_timeout_secs: 5,
+            },
         };
 
         assert_eq!(settings.listen_address(), "127.0.0.1:8080");

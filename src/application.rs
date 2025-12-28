@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::sync::Arc;
 
+use crate::configuration::Settings;
 use crate::services::ble_service::BleService;
 use crate::services::mqtt_service::MqttService;
 use crate::services::vent_service::VentService;
@@ -14,16 +15,20 @@ pub struct Application {
 
 impl Application {
     /// Create a new Application with all services initialized in the proper order
-    pub async fn new(
-        mqtt_broker: &str,
-        mqtt_port: u16,
-        mqtt_client_id: &str,
-        listen_address: &str,
-    ) -> Result<Self, Box<dyn Error>> {
-        let ble_service = BleService::new().await?;
-        let vent_service = Arc::new(VentService::new(ble_service));
-        let mqtt_service =
-            Arc::new(MqttService::new(mqtt_broker, mqtt_port, mqtt_client_id).await?);
+    pub async fn new(config: &Settings, listen_address: &str) -> Result<Self, Box<dyn Error>> {
+        let ble_service = BleService::new(config.ble.observer_timeout_secs).await?;
+        let vent_service = Arc::new(VentService::new(
+            ble_service,
+            config.ble.connection_timeout_secs,
+        ));
+        let mqtt_service = Arc::new(
+            MqttService::new(
+                &config.mqtt.broker,
+                config.mqtt.port,
+                &config.mqtt.client_id,
+            )
+            .await?,
+        );
 
         // Register MQTT service as an observer to BLE service for sensor data
         vent_service

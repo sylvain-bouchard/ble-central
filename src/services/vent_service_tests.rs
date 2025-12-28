@@ -3,10 +3,10 @@ use crate::services::ble_service::BleService;
 use uuid::Uuid;
 
 async fn create_test_vent_service() -> VentService {
-    let ble_service = BleService::new()
+    let ble_service = BleService::new(5)
         .await
         .expect("Failed to create BleService");
-    VentService::new(ble_service)
+    VentService::new(ble_service, 10)
 }
 
 #[tokio::test]

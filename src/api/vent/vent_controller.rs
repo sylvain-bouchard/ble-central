@@ -72,7 +72,9 @@ pub async fn connect(
     device_id: String,
     payload: ConnectRequest,
 ) -> Result<ConnectResponse, (StatusCode, ErrorResponse)> {
-    let timeout_secs = payload.timeout_secs.unwrap_or(10);
+    let timeout_secs = payload
+        .timeout_secs
+        .unwrap_or_else(|| state.vent_service.get_default_connection_timeout());
 
     state
         .vent_service
@@ -179,9 +181,7 @@ pub async fn stop_scan(
 }
 
 /// Get list of discovered BLE devices
-pub async fn list_discovered_devices(
-    state: &ApplicationState,
-) -> DiscoveredDevicesResponse {
+pub async fn list_discovered_devices(state: &ApplicationState) -> DiscoveredDevicesResponse {
     let devices = state.vent_service.get_discovered_devices().await;
     DiscoveredDevicesResponse { devices }
 }

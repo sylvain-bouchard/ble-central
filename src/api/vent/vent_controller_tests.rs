@@ -6,10 +6,10 @@ use crate::state::ApplicationState;
 use std::sync::Arc;
 
 async fn create_test_app_state() -> ApplicationState {
-    let ble_service = BleService::new()
+    let ble_service = BleService::new(5)
         .await
         .expect("Failed to create BleService");
-    let vent_service = VentService::new(ble_service);
+    let vent_service = VentService::new(ble_service, 10);
 
     // Try to create MQTT service, but if it fails (no broker), use a test instance
     // In a real test environment, you'd use a mock MQTT service

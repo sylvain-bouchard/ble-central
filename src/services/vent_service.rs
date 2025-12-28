@@ -33,6 +33,7 @@ pub struct VentService {
     connected_device: Arc<Mutex<Option<Peripheral>>>,
     vent_status: Arc<RwLock<VentStatus>>,
     discovered_devices: Arc<Mutex<HashMap<String, DiscoveredDevice>>>,
+    default_connection_timeout_secs: u64,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -46,13 +47,14 @@ pub enum VentError {
 }
 
 impl VentService {
-    pub fn new(ble_service: BleService) -> Self {
+    pub fn new(ble_service: BleService, default_connection_timeout_secs: u64) -> Self {
         VentService {
             ble_service,
             scanning_adapter: Arc::new(Mutex::new(None)),
             connected_device: Arc::new(Mutex::new(None)),
             vent_status: Arc::new(RwLock::new(VentStatus::Disconnected)),
             discovered_devices: Arc::new(Mutex::new(HashMap::new())),
+            default_connection_timeout_secs,
         }
     }
 
@@ -213,6 +215,11 @@ impl VentService {
     pub async fn get_vent_status(&self) -> VentStatus {
         // Return the cached status, which is updated by notifications
         *self.vent_status.read().await
+    }
+
+    /// Get the default connection timeout in seconds
+    pub fn get_default_connection_timeout(&self) -> u64 {
+        self.default_connection_timeout_secs
     }
 
     /// Disconnect from the device

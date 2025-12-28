@@ -38,9 +38,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     let application = application::Application::new(
-        &configuration.mqtt.broker,
-        configuration.mqtt.port,
-        &configuration.mqtt.client_id,
+        &configuration,
         &configuration.listen_address(),
     )
     .await?;

@@ -30,6 +30,7 @@ pub struct BleService {
     manager: Manager,
     adapters: Vec<Adapter>,
     observers: Arc<RwLock<Vec<Arc<dyn BleDataObserver>>>>,
+    observer_timeout_secs: u64,
 }
 
 impl Clone for BleService {
@@ -38,12 +39,13 @@ impl Clone for BleService {
             manager: self.manager.clone(),
             adapters: self.adapters.clone(),
             observers: Arc::clone(&self.observers),
+            observer_timeout_secs: self.observer_timeout_secs,
         }
     }
 }
 
 impl BleService {
-    pub async fn new() -> Result<Self, btleplug::Error> {
+    pub async fn new(observer_timeout_secs: u64) -> Result<Self, btleplug::Error> {
         let manager = Manager::new().await?;
         let adapters = manager.adapters().await?;
         let observers = Arc::new(RwLock::new(Vec::new()));
@@ -52,6 +54,7 @@ impl BleService {
             manager,
             adapters,
             observers,
+            observer_timeout_secs,
         })
     }
 
@@ -210,6 +213,7 @@ impl BleService {
         }
 
         let data: Arc<[u8]> = data.into();
+        let observer_timeout = Duration::from_secs(self.observer_timeout_secs);
 
         for observer in observers {
             let id = id.clone();
@@ -218,12 +222,11 @@ impl BleService {
 
             tokio::spawn(async move {
                 if let Err(e) = tokio::time::timeout(
-                    Duration::from_secs(5),
+                    observer_timeout,
                     observer.on_sensor_data(id.clone(), manufacturer_id, data),
                 )
                 .await
-                {
-                    warn!(
+                {                    warn!(
                         "Observer timed out processing sensor data for device {}: {:?}",
                         id, e
                     );
