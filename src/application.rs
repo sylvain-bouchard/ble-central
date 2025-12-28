@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::sync::Arc;
 
-use crate::api::vent::vent_controller::VentApiController;
 use crate::services::ble_service::BleService;
 use crate::services::mqtt_service::MqttService;
 use crate::services::vent_service::VentService;
@@ -31,11 +30,8 @@ impl Application {
             .register_ble_observer(mqtt_service.clone())
             .await;
 
-        let vent_api_controller = Arc::new(VentApiController::new());
-
         let state = ApplicationState {
             vent_service,
-            vent_api_controller,
         };
 
         Ok(Application {
