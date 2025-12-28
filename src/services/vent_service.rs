@@ -87,20 +87,29 @@ impl VentService {
                     device_count, device_info.id, device_info.name, device_info.address
                 );
 
-                let mut devices = discovered_devices.lock().await;
-
                 let device_id = device_info.id.clone();
-                if !devices.contains_key(&device_id) {
-                    // Device info already includes name and address from advertisement
-                    devices.insert(
-                        device_id.clone(),
-                        DiscoveredDevice {
-                            id: device_info.id.clone(),
-                            address: device_info.address.clone(),
-                            name: device_info.name.clone(),
-                        },
-                    );
-                    debug!("Added device to list (total: {})", devices.len());
+
+                let (was_added, total_count) = {
+                    let mut devices = discovered_devices.lock().await;
+                    let was_added = if !devices.contains_key(&device_id) {
+                        // Device info already includes name and address from advertisement
+                        devices.insert(
+                            device_id.clone(),
+                            DiscoveredDevice {
+                                id: device_info.id.clone(),
+                                address: device_info.address.clone(),
+                                name: device_info.name.clone(),
+                            },
+                        );
+                        true
+                    } else {
+                        false
+                    };
+                    (was_added, devices.len())
+                };
+
+                if was_added {
+                    debug!("Added device to list (total: {})", total_count);
                 } else {
                     debug!("Device {} already in list, skipping", device_id);
                 }
@@ -266,8 +275,10 @@ impl VentService {
 
     /// Get list of discovered devices
     pub async fn get_discovered_devices(&self) -> Vec<DiscoveredDevice> {
-        let devices = self.discovered_devices.lock().await;
-        let device_list: Vec<DiscoveredDevice> = devices.values().cloned().collect();
+        let device_list: Vec<DiscoveredDevice> = {
+            let devices = self.discovered_devices.lock().await;
+            devices.values().cloned().collect()
+        };
 
         info!(
             "get_discovered_devices called, returning {} devices",
