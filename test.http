@@ -35,3 +35,42 @@ POST {{apiUrl}}/api/vent/open
 
 ### Close vent
 POST {{apiUrl}}/api/vent/close
+### Disconnect from device
+POST {{apiUrl}}/api/vent/disconnect
+
+### Stop BLE scan
+POST {{apiUrl}}/api/ble/stop-scan
+
+##########################
+# MQTT Operations
+##########################
+
+### Get MQTT status
+GET {{apiUrl}}/api/mqtt/status
+
+### Publish a simple text message to MQTT
+POST {{apiUrl}}/api/mqtt/publish
+Content-Type: application/json
+
+{
+  "topic": "test/message",
+  "message": "Hello from BLE Gateway",
+  "qos": 0
+}
+
+### Publish JSON data to MQTT
+POST {{apiUrl}}/api/mqtt/publish/json
+Content-Type: application/json
+
+{
+  "topic": "living_room/air_quality/data",
+  "qos": 1,
+  "payload": {
+    "temperature": 22.5,
+    "humidity": 55.0,
+    "co2": 450,
+    "pm1p0": 12.0,
+    "pm2p5": 18.0,
+    "voc_index": 125
+  }
+}
