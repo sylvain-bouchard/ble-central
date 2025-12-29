@@ -25,6 +25,7 @@ pub enum AppError {
     Config(#[from] config::ConfigError),
 
     /// Device not found
+    #[allow(dead_code)]
     #[error("Device not found: {0}")]
     DeviceNotFound(String),
 
