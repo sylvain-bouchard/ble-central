@@ -9,6 +9,7 @@ use crate::services::ble_service::BleDataObserver;
 #[derive(Clone)]
 pub struct MqttService {
     client: AsyncClient,
+    topic: String,
 }
 
 impl MqttService {
@@ -17,6 +18,7 @@ impl MqttService {
         broker: &str,
         port: u16,
         client_id: &str,
+        topic: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut mqtt_options = MqttOptions::new(client_id, broker, port);
         mqtt_options.set_keep_alive(Duration::from_secs(5));
@@ -62,7 +64,7 @@ impl MqttService {
             }
         });
 
-        Ok(MqttService { client })
+        Ok(MqttService { client, topic: topic.to_string() })
     }
 
     /// Send an MQTT message to the specified topic
@@ -124,15 +126,14 @@ impl BleDataObserver for MqttService {
         match SensorReadings::from_manufacturer_data(&data) {
             Some(readings) => {
                 let payload = readings.to_json();
-                let topic = "living_room/air_quality/data";
 
                 if let Err(error) = self
-                    .send_message(topic, payload.as_bytes(), QoS::AtLeastOnce)
+                    .send_message(&self.topic, payload.as_bytes(), QoS::AtLeastOnce)
                     .await
                 {
                     error!("Failed to publish sensor data to MQTT: {:?}", error);
                 } else {
-                    info!("Published sensor data to {}: {}", topic, payload);
+                    info!("Published sensor data to {}: {}", self.topic, payload);
                 }
             }
             None => {

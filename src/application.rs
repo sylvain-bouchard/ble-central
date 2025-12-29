@@ -26,6 +26,7 @@ impl Application {
                 &config.mqtt.broker,
                 config.mqtt.port,
                 &config.mqtt.client_id,
+                &config.mqtt.topic,
             )
             .await?,
         );

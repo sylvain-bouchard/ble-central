@@ -37,11 +37,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string())
     );
 
-    let application = application::Application::new(
-        &configuration,
-        &configuration.listen_address(),
-    )
-    .await?;
+    let application =
+        application::Application::new(&configuration, &configuration.listen_address()).await?;
 
     if configuration.ble.scan_auto_start.unwrap_or(false) {
         tracing::info!("Starting BLE scan as per configuration");
@@ -50,7 +47,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         tracing::info!("BLE scan auto-start is disabled in configuration");
     }
 
-    let address: std::net::SocketAddr = application.listen_address().parse()
+    let address: std::net::SocketAddr = application
+        .listen_address()
+        .parse()
         .map_err(|e| format!("Invalid listen address: {}", e))?;
 
     let listener = tokio::net::TcpListener::bind(address).await?;
@@ -61,9 +60,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("API docs are accessible at {local_address}/docs");
     println!("Log level: {}", configuration.api.log_level);
     println!(
-        "MQTT broker: {}:{}",
-        configuration.mqtt.broker, configuration.mqtt.port
+        "MQTT broker: {}:{} Topic: {}",
+        configuration.mqtt.broker, configuration.mqtt.port, configuration.mqtt.topic
     );
+
     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 
     axum::serve(listener, build_router(application.state().clone())).await?;

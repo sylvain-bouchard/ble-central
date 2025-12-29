@@ -4,7 +4,7 @@ port = 8080
 log_level = 'info'
 
 [mqtt]
-broker = 'localhost'
+broker = '192.168.0.36'
 port = 1883
 client_id = 'ble_to_mqtt_bridge'
 keep_alive_secs = 5
@@ -13,5 +13,3 @@ topic = 'living_room/air_quality/data'
 [ble]
 enable_scan = true
 scan_auto_start = true
-connection_timeout_secs = 10
-observer_timeout_secs = 5

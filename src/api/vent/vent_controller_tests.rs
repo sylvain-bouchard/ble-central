@@ -13,16 +13,17 @@ async fn create_test_app_state() -> ApplicationState {
 
     // Try to create MQTT service, but if it fails (no broker), use a test instance
     // In a real test environment, you'd use a mock MQTT service
-    let mqtt_service = match MqttService::new("localhost", 1883, "test-client").await {
-        Ok(service) => service,
-        Err(_) => {
-            // Fallback: create with a non-existent broker for testing
-            // The service will still be created but will log connection errors
-            MqttService::new("127.0.0.1", 18830, "test-fallback")
-                .await
-                .expect("Failed to create fallback MQTT service")
-        }
-    };
+    let mqtt_service =
+        match MqttService::new("localhost", 1883, "test-client", "sensors/vent").await {
+            Ok(service) => service,
+            Err(_) => {
+                // Fallback: create with a non-existent broker for testing
+                // The service will still be created but will log connection errors
+                MqttService::new("127.0.0.1", 18830, "test-fallback", "sensors/vent")
+                    .await
+                    .expect("Failed to create fallback MQTT service")
+            }
+        };
 
     ApplicationState {
         vent_service: Arc::new(vent_service),

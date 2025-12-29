@@ -23,6 +23,7 @@ pub struct MqttConfig {
     pub port: u16,
     pub client_id: String,
     pub keep_alive_secs: u64,
+    pub topic: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +98,7 @@ mod tests {
                 port: 1883,
                 client_id: "test".to_string(),
                 keep_alive_secs: 5,
+                topic: "sensors/vent".to_string(),
             },
             ble: BleConfig {
                 enable_scan: true,
