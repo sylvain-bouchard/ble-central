@@ -67,7 +67,49 @@ async fn main() -> Result<(), AppError> {
 
     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 
-    axum::serve(listener, build_router(application.state().clone())).await?;
+    // Create shutdown signal handler
+    let shutdown_signal = async {
+        let ctrl_c = async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to install Ctrl+C handler");
+        };
+
+        #[cfg(unix)]
+        let terminate = async {
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("Failed to install SIGTERM handler")
+                .recv()
+                .await;
+        };
+
+        #[cfg(not(unix))]
+        let terminate = std::future::pending::<()>();
+
+        tokio::select! {
+            _ = ctrl_c => {
+                tracing::info!("Received Ctrl+C signal");
+            },
+            _ = terminate => {
+                tracing::info!("Received SIGTERM signal");
+            },
+        }
+    };
+
+    // Run the server with graceful shutdown
+    let server = axum::serve(listener, build_router(application.state().clone()))
+        .with_graceful_shutdown(shutdown_signal);
+
+    tracing::info!("Server is running, press Ctrl+C to stop");
+
+    if let Err(e) = server.await {
+        tracing::error!("Server error: {}", e);
+    }
+
+    // Perform application cleanup
+    application.shutdown().await;
+
+    tracing::info!("Application stopped");
 
     Ok(())
 }

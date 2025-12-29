@@ -56,4 +56,24 @@ impl Application {
     pub fn listen_address(&self) -> &str {
         &self.listen_address
     }
+
+    /// Gracefully shutdown the application and cleanup resources
+    pub async fn shutdown(&self) {
+        tracing::info!("Initiating graceful shutdown...");
+
+        // Stop BLE scanning
+        if let Err(e) = self.state.vent_service.stop_scanning().await {
+            tracing::warn!("Error stopping BLE scan during shutdown: {}", e);
+        }
+
+        // Disconnect from any connected devices
+        if let Err(e) = self.state.vent_service.disconnect().await {
+            tracing::warn!("Error disconnecting device during shutdown: {}", e);
+        }
+
+        // Disconnect MQTT client
+        self.state.mqtt_service.disconnect().await;
+
+        tracing::info!("Shutdown complete");
+    }
 }

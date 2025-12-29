@@ -65,7 +65,20 @@ impl MqttService {
             }
         });
 
-        Ok(MqttService { client, topic: topic.to_string() })
+        Ok(MqttService {
+            client,
+            topic: topic.to_string(),
+        })
+    }
+
+    /// Disconnect the MQTT client gracefully
+    pub async fn disconnect(&self) {
+        // Attempt to disconnect gracefully
+        if let Err(e) = self.client.disconnect().await {
+            warn!("MQTT disconnect error: {}", e);
+        } else {
+            info!("MQTT client disconnected");
+        }
     }
 
     /// Send an MQTT message to the specified topic
@@ -208,13 +221,12 @@ mod mqtt_service_tests {
     fn test_sensor_data_json_format() {
         // Test JSON serialization
         let data = vec![
-            0x00, 0x05, 0x90, 0x19, 0xC4, 0x09, 
-            0x1E, 0x00, 0x78, 0x00, 0xB4, 0x00,
+            0x00, 0x05, 0x90, 0x19, 0xC4, 0x09, 0x1E, 0x00, 0x78, 0x00, 0xB4, 0x00,
         ];
 
         let readings = SensorReadings::from_manufacturer_data(&data).unwrap();
         let json = readings.to_json();
-        
+
         // Verify JSON contains expected fields
         assert!(json.contains("\"temperature\":"));
         assert!(json.contains("\"humidity\":"));
@@ -228,11 +240,11 @@ mod mqtt_service_tests {
     async fn test_observer_filters_manufacturer_id() {
         // This test verifies that the observer correctly filters by manufacturer ID
         // In a real scenario with a mock, you'd verify the publish was called/not called
-        
+
         // Valid manufacturer ID (0xFFFF) - would be processed
         let valid_mfg_id = 0xFFFF;
         assert_eq!(valid_mfg_id, 0xFFFF);
-        
+
         // Invalid manufacturer ID - would be ignored
         let invalid_mfg_id = 0x0059; // Apple
         assert_ne!(invalid_mfg_id, 0xFFFF);
