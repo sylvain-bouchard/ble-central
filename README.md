@@ -76,3 +76,38 @@ The application uses a single BLE status characteristic (UUID: `0000180b-0000-10
 - `0x01` = Open
 - `0x02` = Closed
 - Other = Disconnected
+
+## Testing
+
+The project includes comprehensive test coverage:
+
+### Run all tests
+
+```bash
+cargo test
+```
+
+### Test breakdown
+
+- **Unit tests**: 35 tests (services + controllers)
+- **Integration tests**: 17 tests (API endpoints)
+- **Total**: 52 tests
+
+### Integration tests
+
+Integration tests validate API endpoints end-to-end using `axum-test`. They test:
+
+- Health check endpoint
+- BLE operations (scan, devices, stop-scan)
+- Vent operations (status, open, close, disconnect)
+- MQTT operations (status, publish, publish JSON)
+- API versioning enforcement
+- Error handling and validation
+
+See [`tests/README.md`](tests/README.md) for detailed test documentation.
+
+### Run only integration tests
+
+```bash
+cargo test --test integration_tests
+```
