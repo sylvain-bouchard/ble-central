@@ -176,9 +176,53 @@ let timeout = Duration::from_secs(config.api.timeout_secs);
 
 ## Validation
 
-Configuration is validated at startup. If invalid values are provided (wrong types, missing required fields), the application will fail with a clear error message.
+Configuration is validated at startup with comprehensive checks to prevent runtime errors. The application will fail fast with clear error messages if invalid values are provided.
+
+### Validation Rules
+
+#### API Configuration
+
+- `port` must be greater than 0
+- `host` cannot be empty
+- `log_level` must be one of: `trace`, `debug`, `info`, `warn`, `error` (case-insensitive)
+
+#### MQTT Configuration
+
+- `broker` cannot be empty
+- `port` must be greater than 0
+- `client_id` cannot be empty
+- `topic` cannot be empty
+- `keep_alive_secs` must be between 1 and 65535
+
+#### BLE Configuration
+
+- `connection_timeout_secs` must be between 1 and 300 seconds (5 minutes max)
+- `observer_timeout_secs` must be between 1 and 60 seconds (1 minute max)
+
+### Example Error Messages
 
 ```bash
-$ cargo run
-thread 'main' panicked at 'Failed to load configuration: missing field `port`'
+# Invalid port
+$ APP_API__PORT=0 cargo run
+Error: API port must be greater than 0
+
+# Invalid log level
+$ APP_API__LOG_LEVEL=invalid cargo run
+Error: Invalid log level 'invalid'. Must be one of: trace, debug, info, warn, error
+
+# Timeout too large
+$ APP_BLE__CONNECTION_TIMEOUT_SECS=500 cargo run
+Error: BLE connection_timeout_secs should not exceed 300 seconds (5 minutes)
+
+# Empty string
+$ APP_MQTT__BROKER="" cargo run
+Error: MQTT broker cannot be empty
+```
+
+### Testing Configuration Validation
+
+The configuration module includes 16 validation tests covering all validation rules. Run them with:
+
+```bash
+cargo test configuration::tests
 ```
