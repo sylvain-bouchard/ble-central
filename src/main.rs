@@ -52,7 +52,9 @@ async fn main() -> Result<(), AppError> {
 
     if configuration.ble.scan_auto_start.unwrap_or(false) {
         tracing::info!("Starting BLE scan as per configuration");
-        application.state.vent_service.initialize().await?;
+        if let Err(e) = application.state.vent_service.initialize().await {
+            tracing::warn!("BLE auto-start failed: {}. API will start without BLE.", e);
+        }
     } else {
         tracing::info!("BLE scan auto-start is disabled in configuration");
     }
