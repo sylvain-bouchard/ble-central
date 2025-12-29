@@ -1,6 +1,6 @@
-use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
+use crate::error::AppError;
 use crate::services::vent_service::DiscoveredDevice;
 use crate::state::ApplicationState;
 
@@ -38,11 +38,6 @@ pub struct DiscoveredDevicesResponse {
     pub devices: Vec<DiscoveredDevice>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
 // Free functions for handling vent API operations
 // These are called directly from route handlers
 
@@ -50,15 +45,8 @@ pub struct ErrorResponse {
 pub async fn scan(
     state: &ApplicationState,
     _payload: ScanRequest,
-) -> Result<MessageResponse, (StatusCode, ErrorResponse)> {
-    state.vent_service.initialize().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorResponse {
-                error: format!("Failed to initialize scan: {}", e),
-            },
-        )
-    })?;
+) -> Result<MessageResponse, AppError> {
+    state.vent_service.initialize().await?;
 
     Ok(MessageResponse {
         status: "scanning".to_string(),
@@ -71,23 +59,12 @@ pub async fn connect(
     state: &ApplicationState,
     device_id: String,
     payload: ConnectRequest,
-) -> Result<ConnectResponse, (StatusCode, ErrorResponse)> {
+) -> Result<ConnectResponse, AppError> {
     let timeout_secs = payload
         .timeout_secs
         .unwrap_or_else(|| state.vent_service.get_default_connection_timeout());
 
-    state
-        .vent_service
-        .connect(&device_id, timeout_secs)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ErrorResponse {
-                    error: format!("Failed to connect to device: {}", e),
-                },
-            )
-        })?;
+    state.vent_service.connect(&device_id, timeout_secs).await?;
 
     Ok(ConnectResponse {
         status: "connected".to_string(),
@@ -97,17 +74,8 @@ pub async fn connect(
 }
 
 /// Open the vent via BLE
-pub async fn open(
-    state: &ApplicationState,
-) -> Result<MessageResponse, (StatusCode, ErrorResponse)> {
-    state.vent_service.open_vent().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorResponse {
-                error: format!("Failed to open vent: {}", e),
-            },
-        )
-    })?;
+pub async fn open(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+    state.vent_service.open_vent().await?;
 
     Ok(MessageResponse {
         status: "open".to_string(),
@@ -116,17 +84,8 @@ pub async fn open(
 }
 
 /// Close the vent via BLE
-pub async fn close(
-    state: &ApplicationState,
-) -> Result<MessageResponse, (StatusCode, ErrorResponse)> {
-    state.vent_service.close_vent().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorResponse {
-                error: format!("Failed to close vent: {}", e),
-            },
-        )
-    })?;
+pub async fn close(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+    state.vent_service.close_vent().await?;
 
     Ok(MessageResponse {
         status: "closed".to_string(),
@@ -143,17 +102,8 @@ pub async fn status(state: &ApplicationState) -> VentStatusResponse {
 }
 
 /// Disconnect from the device
-pub async fn disconnect(
-    state: &ApplicationState,
-) -> Result<MessageResponse, (StatusCode, ErrorResponse)> {
-    state.vent_service.disconnect().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorResponse {
-                error: format!("Failed to disconnect: {}", e),
-            },
-        )
-    })?;
+pub async fn disconnect(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+    state.vent_service.disconnect().await?;
 
     Ok(MessageResponse {
         status: "disconnected".to_string(),
@@ -162,17 +112,8 @@ pub async fn disconnect(
 }
 
 /// Stop BLE scanning without connecting
-pub async fn stop_scan(
-    state: &ApplicationState,
-) -> Result<MessageResponse, (StatusCode, ErrorResponse)> {
-    state.vent_service.stop_scanning().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorResponse {
-                error: format!("Failed to stop scanning: {}", e),
-            },
-        )
-    })?;
+pub async fn stop_scan(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+    state.vent_service.stop_scanning().await?;
 
     Ok(MessageResponse {
         status: "stopped".to_string(),

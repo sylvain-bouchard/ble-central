@@ -1,7 +1,7 @@
-use std::error::Error;
 use std::sync::Arc;
 
 use crate::configuration::Settings;
+use crate::error::AppError;
 use crate::services::ble_service::BleService;
 use crate::services::mqtt_service::MqttService;
 use crate::services::vent_service::VentService;
@@ -15,7 +15,7 @@ pub struct Application {
 
 impl Application {
     /// Create a new Application with all services initialized in the proper order
-    pub async fn new(config: &Settings, listen_address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(config: &Settings, listen_address: &str) -> Result<Self, AppError> {
         let ble_service = BleService::new(config.ble.observer_timeout_secs).await?;
         let vent_service = Arc::new(VentService::new(
             ble_service,

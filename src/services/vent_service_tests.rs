@@ -1,4 +1,5 @@
-use super::{VentError, VentService, VentStatus, STATUS_UUID};
+use super::{VentService, VentStatus, STATUS_UUID};
+use crate::error::AppError;
 use crate::services::ble_service::BleService;
 use uuid::Uuid;
 
@@ -89,7 +90,7 @@ async fn test_connect_without_adapter_fails() {
     let result = service.connect("nonexistent_device", 1).await;
 
     match result {
-        Err(VentError::NoAdapter) | Err(VentError::Ble(_)) => {
+        Err(AppError::NoAdapter) | Err(AppError::Ble(_)) => {
             // Expected to fail in test environment
             assert!(true);
         }
@@ -121,7 +122,7 @@ async fn test_open_vent_without_connection_fails() {
     let result = service.open_vent().await;
 
     match result {
-        Err(VentError::NotConnected) => assert!(true),
+        Err(AppError::NotConnected) => assert!(true),
         _ => panic!("Should return NotConnected error when not connected"),
     }
 }
@@ -133,7 +134,7 @@ async fn test_close_vent_without_connection_fails() {
     let result = service.close_vent().await;
 
     match result {
-        Err(VentError::NotConnected) => assert!(true),
+        Err(AppError::NotConnected) => assert!(true),
         _ => panic!("Should return NotConnected error when not connected"),
     }
 }

@@ -2,8 +2,9 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use rumqttc::QoS;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::{error, info};
+use tracing::info;
 
+use crate::error::AppError;
 use crate::state::ApplicationState;
 
 #[derive(Debug, Deserialize)]
@@ -46,7 +47,7 @@ pub async fn get_status() -> impl IntoResponse {
 pub async fn publish_message(
     state: ApplicationState,
     Json(request): Json<PublishRequest>,
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<impl IntoResponse, AppError> {
     info!("Publishing message to MQTT topic: {}", request.topic);
 
     let qos = match request.qos {
@@ -54,48 +55,43 @@ pub async fn publish_message(
         1 => QoS::AtLeastOnce,
         2 => QoS::ExactlyOnce,
         _ => {
-            error!("Invalid QoS value: {}. Must be 0, 1, or 2", request.qos);
-            return Err(StatusCode::BAD_REQUEST);
+            return Err(AppError::InvalidInput(format!(
+                "Invalid QoS value: {}. Must be 0, 1, or 2",
+                request.qos
+            )));
         }
     };
 
-    match state
+    state
         .mqtt_service
         .send_string_message(&request.topic, &request.message, qos)
-        .await
-    {
-        Ok(_) => {
-            info!(
-                "Successfully published to topic {}: {}",
-                request.topic, request.message
-            );
-            Ok((
-                StatusCode::OK,
-                Json(json!({
-                    "status": "published",
-                    "message": format!("Message published to topic '{}'", request.topic),
-                    "topic": request.topic,
-                    "qos": request.qos
-                })),
-            ))
-        }
-        Err(error) => {
-            error!("Failed to publish MQTT message: {:?}", error);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+        .await?;
+
+    info!(
+        "Successfully published to topic {}: {}",
+        request.topic, request.message
+    );
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "status": "published",
+            "message": format!("Message published to topic '{}'", request.topic),
+            "topic": request.topic,
+            "qos": request.qos
+        })),
+    ))
 }
 
 /// Publish JSON data to MQTT broker
 pub async fn publish_json(
     state: ApplicationState,
     Json(request): Json<serde_json::Value>,
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<impl IntoResponse, AppError> {
     // Extract topic and qos from the JSON request
     let topic = request
         .get("topic")
         .and_then(|v| v.as_str())
-        .ok_or(StatusCode::BAD_REQUEST)?;
+        .ok_or_else(|| AppError::InvalidInput("Missing 'topic' field".to_string()))?;
     
     let qos_value = request
         .get("qos")
@@ -104,7 +100,7 @@ pub async fn publish_json(
     
     let payload = request
         .get("payload")
-        .ok_or(StatusCode::BAD_REQUEST)?;
+        .ok_or_else(|| AppError::InvalidInput("Missing 'payload' field".to_string()))?;
 
     info!("Publishing JSON to MQTT topic: {}", topic);
 
@@ -113,33 +109,28 @@ pub async fn publish_json(
         1 => QoS::AtLeastOnce,
         2 => QoS::ExactlyOnce,
         _ => {
-            error!("Invalid QoS value: {}. Must be 0, 1, or 2", qos_value);
-            return Err(StatusCode::BAD_REQUEST);
+            return Err(AppError::InvalidInput(format!(
+                "Invalid QoS value: {}. Must be 0, 1, or 2",
+                qos_value
+            )));
         }
     };
 
-    match state
+    state
         .mqtt_service
         .send_json_message(topic, payload, qos)
-        .await
-    {
-        Ok(_) => {
-            info!("Successfully published JSON to topic {}", topic);
-            Ok((
-                StatusCode::OK,
-                Json(json!({
-                    "status": "published",
-                    "message": format!("JSON published to topic '{}'", topic),
-                    "topic": topic,
-                    "qos": qos_value
-                })),
-            ))
-        }
-        Err(error) => {
-            error!("Failed to publish JSON to MQTT: {:?}", error);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+        .await?;
+
+    info!("Successfully published JSON to topic {}", topic);
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "status": "published",
+            "message": format!("JSON published to topic '{}'", topic),
+            "topic": topic,
+            "qos": qos_value
+        })),
+    ))
 }
 
 #[cfg(test)]

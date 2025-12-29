@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use api::vent::vent_routes::build_router;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
@@ -8,8 +6,11 @@ mod api;
 mod application;
 mod configuration;
 mod domain;
+mod error;
 mod services;
 mod state;
+
+use error::AppError;
 
 /// BLE Central Gateway - Converts BLE sensor data to MQTT messages
 #[derive(Parser, Debug)]
@@ -22,7 +23,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), AppError> {
     let args = Args::parse();
     let configuration = configuration::Settings::from_env(args.config.as_deref())?;
 

@@ -21,13 +21,13 @@ async fn mqtt_status_handler() -> impl axum::response::IntoResponse {
 async fn publish_message_handler(
     State(state): State<ApplicationState>,
     payload: axum::Json<mqtt_controller::PublishRequest>,
-) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
+) -> Result<impl axum::response::IntoResponse, impl axum::response::IntoResponse> {
     mqtt_controller::publish_message(state, payload).await
 }
 
 async fn publish_json_handler(
     State(state): State<ApplicationState>,
     payload: axum::Json<serde_json::Value>,
-) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
+) -> Result<impl axum::response::IntoResponse, impl axum::response::IntoResponse> {
     mqtt_controller::publish_json(state, payload).await
 }

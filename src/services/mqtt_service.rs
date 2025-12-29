@@ -4,6 +4,7 @@ use std::time::Duration;
 use tracing::{error, info, warn};
 
 use crate::domain::sensor::{SensorData, SensorReadings};
+use crate::error::AppError;
 use crate::services::ble_service::BleDataObserver;
 
 #[derive(Clone)]
@@ -19,7 +20,7 @@ impl MqttService {
         port: u16,
         client_id: &str,
         topic: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, AppError> {
         let mut mqtt_options = MqttOptions::new(client_id, broker, port);
         mqtt_options.set_keep_alive(Duration::from_secs(5));
 
@@ -73,7 +74,7 @@ impl MqttService {
         topic: &str,
         payload: &[u8],
         qos: QoS,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), AppError> {
         self.client.publish(topic, qos, false, payload).await?;
         info!(
             "Published to {}: {:?}",
@@ -90,7 +91,7 @@ impl MqttService {
         topic: &str,
         message: &str,
         qos: QoS,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), AppError> {
         self.send_message(topic, message.as_bytes(), qos).await
     }
 
@@ -101,8 +102,9 @@ impl MqttService {
         topic: &str,
         value: &serde_json::Value,
         qos: QoS,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let json_str = serde_json::to_string(value)?;
+    ) -> Result<(), AppError> {
+        let json_str = serde_json::to_string(value)
+            .map_err(|e| AppError::Internal(format!("JSON serialization error: {}", e)))?;
         self.send_message(topic, json_str.as_bytes(), qos).await
     }
 }

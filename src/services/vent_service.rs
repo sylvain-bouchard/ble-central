@@ -1,4 +1,5 @@
 use crate::domain::vent::vent::VentStatus;
+use crate::error::AppError;
 use crate::services::ble_service::{BleDataObserver, BleService};
 use btleplug::platform::{Adapter, Peripheral};
 use futures::stream::StreamExt;
@@ -6,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 // BLE Characteristic UUIDs
 const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic
@@ -36,16 +37,6 @@ pub struct VentService {
     default_connection_timeout_secs: u64,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum VentError {
-    #[error("No Bluetooth adapter found")]
-    NoAdapter,
-    #[error("Device not connected")]
-    NotConnected,
-    #[error("BLE error: {0}")]
-    Ble(#[from] btleplug::Error),
-}
-
 impl VentService {
     pub fn new(ble_service: BleService, default_connection_timeout_secs: u64) -> Self {
         VentService {
@@ -63,12 +54,12 @@ impl VentService {
         self.ble_service.register_observer(observer).await;
     }
 
-    pub async fn initialize(&self) -> Result<(), VentError> {
+    pub async fn initialize(&self) -> Result<(), AppError> {
         debug!("Initializing BLE scan");
         let adapter = self
             .ble_service
             .get_default_adapter()
-            .ok_or(VentError::NoAdapter)?;
+            .ok_or(AppError::NoAdapter)?;
 
         debug!("Starting BLE scan with adapter");
         let rx = self.ble_service.start_scan(&adapter).await?;
@@ -127,7 +118,7 @@ impl VentService {
     }
 
     /// Connect to a vent device by waiting for discovery
-    pub async fn connect(&self, device_id: &str, timeout_secs: u64) -> Result<(), VentError> {
+    pub async fn connect(&self, device_id: &str, timeout_secs: u64) -> Result<(), AppError> {
         let peripheral = self
             .ble_service
             .connect_to_device(device_id, timeout_secs)
@@ -178,10 +169,10 @@ impl VentService {
     }
 
     /// Open the vent by sending a command to the BLE device
-    pub async fn open_vent(&self) -> Result<(), VentError> {
+    pub async fn open_vent(&self) -> Result<(), AppError> {
         let peripheral = {
             let device = self.connected_device.lock().await;
-            device.as_ref().ok_or(VentError::NotConnected)?.clone()
+            device.as_ref().ok_or(AppError::NotConnected)?.clone()
         };
 
         // Write "open" status as single byte: 0x01 to the status characteristic
@@ -195,10 +186,10 @@ impl VentService {
     }
 
     /// Close the vent by sending a command to the BLE device
-    pub async fn close_vent(&self) -> Result<(), VentError> {
+    pub async fn close_vent(&self) -> Result<(), AppError> {
         let peripheral = {
             let device = self.connected_device.lock().await;
-            device.as_ref().ok_or(VentError::NotConnected)?.clone()
+            device.as_ref().ok_or(AppError::NotConnected)?.clone()
         };
 
         // Write "close" status as single byte: 0x02 to the status characteristic
@@ -223,7 +214,7 @@ impl VentService {
     }
 
     /// Disconnect from the device
-    pub async fn disconnect(&self) -> Result<(), VentError> {
+    pub async fn disconnect(&self) -> Result<(), AppError> {
         let peripheral_opt = self.connected_device.lock().await.take();
 
         if let Some(peripheral) = peripheral_opt {
@@ -242,7 +233,7 @@ impl VentService {
     }
 
     /// Stop scanning (can be called manually to clean up resources)
-    pub async fn stop_scanning(&self) -> Result<(), VentError> {
+    pub async fn stop_scanning(&self) -> Result<(), AppError> {
         if let Some(adapter) = self.scanning_adapter.lock().await.take() {
             self.ble_service.stop_scan(&adapter).await?;
         }
@@ -254,7 +245,7 @@ impl VentService {
     async fn read_device_status_from_characteristic(
         &self,
         peripheral: &Peripheral,
-    ) -> Result<u8, VentError> {
+    ) -> Result<u8, AppError> {
         let data = self
             .ble_service
             .read_characteristic(peripheral, STATUS_UUID)
@@ -262,7 +253,7 @@ impl VentService {
 
         // Device responds with a single byte: 0x01 = open, 0x02 = closed
         if data.is_empty() {
-            return Err(VentError::Ble(btleplug::Error::Other(Box::new(
+            return Err(AppError::Ble(btleplug::Error::Other(Box::new(
                 std::io::Error::new(std::io::ErrorKind::Other, "Device returned empty response"),
             ))));
         }
