@@ -26,7 +26,7 @@ mod test_helpers {
 
         // Use a test MQTT broker (may fail to connect, but that's ok for testing)
         let mqtt_service = Arc::new(
-            MqttService::new("127.0.0.1", 1883, "test_client", "test/topic")
+            MqttService::new("127.0.0.1", 1883, "test_client", "test/topic", 5)
                 .await
                 .unwrap_or_else(|_| {
                     // If MQTT fails, we still need a service for testing

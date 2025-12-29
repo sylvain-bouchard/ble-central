@@ -20,9 +20,10 @@ impl MqttService {
         port: u16,
         client_id: &str,
         topic: &str,
+        keep_alive_secs: u64,
     ) -> Result<Self, AppError> {
         let mut mqtt_options = MqttOptions::new(client_id, broker, port);
-        mqtt_options.set_keep_alive(Duration::from_secs(5));
+        mqtt_options.set_keep_alive(Duration::from_secs(keep_alive_secs));
 
         let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
 
