@@ -61,7 +61,7 @@ impl Settings {
                 .add_source(File::from_str(&file_content, config::FileFormat::Toml).required(true));
         }
 
-        let settings = builder
+        let settings: Settings = builder
             // Load from environment variables with APP_ prefix
             // Supports nested keys like APP_MQTT__BROKER
             .add_source(
@@ -72,7 +72,97 @@ impl Settings {
             .build()?
             .try_deserialize()?;
 
+        // Validate the loaded configuration
+        settings.validate()?;
+
         Ok(settings)
+    }
+
+    /// Validate configuration values
+    fn validate(&self) -> Result<(), ConfigError> {
+        // Validate API configuration
+        if self.api.port == 0 {
+            return Err(ConfigError::Message(
+                "API port must be greater than 0".to_string(),
+            ));
+        }
+
+        if self.api.host.is_empty() {
+            return Err(ConfigError::Message("API host cannot be empty".to_string()));
+        }
+
+        // Validate log level
+        let valid_log_levels = ["trace", "debug", "info", "warn", "error"];
+        if !valid_log_levels.contains(&self.api.log_level.to_lowercase().as_str()) {
+            return Err(ConfigError::Message(format!(
+                "Invalid log level '{}'. Must be one of: trace, debug, info, warn, error",
+                self.api.log_level
+            )));
+        }
+
+        // Validate MQTT configuration
+        if self.mqtt.broker.is_empty() {
+            return Err(ConfigError::Message(
+                "MQTT broker cannot be empty".to_string(),
+            ));
+        }
+
+        if self.mqtt.port == 0 {
+            return Err(ConfigError::Message(
+                "MQTT port must be greater than 0".to_string(),
+            ));
+        }
+
+        if self.mqtt.client_id.is_empty() {
+            return Err(ConfigError::Message(
+                "MQTT client_id cannot be empty".to_string(),
+            ));
+        }
+
+        if self.mqtt.topic.is_empty() {
+            return Err(ConfigError::Message(
+                "MQTT topic cannot be empty".to_string(),
+            ));
+        }
+
+        if self.mqtt.keep_alive_secs == 0 {
+            return Err(ConfigError::Message(
+                "MQTT keep_alive_secs must be greater than 0".to_string(),
+            ));
+        }
+
+        if self.mqtt.keep_alive_secs > 65535 {
+            return Err(ConfigError::Message(
+                "MQTT keep_alive_secs must be less than or equal to 65535".to_string(),
+            ));
+        }
+
+        // Validate BLE configuration
+        if self.ble.connection_timeout_secs == 0 {
+            return Err(ConfigError::Message(
+                "BLE connection_timeout_secs must be greater than 0".to_string(),
+            ));
+        }
+
+        if self.ble.connection_timeout_secs > 300 {
+            return Err(ConfigError::Message(
+                "BLE connection_timeout_secs should not exceed 300 seconds (5 minutes)".to_string(),
+            ));
+        }
+
+        if self.ble.observer_timeout_secs == 0 {
+            return Err(ConfigError::Message(
+                "BLE observer_timeout_secs must be greater than 0".to_string(),
+            ));
+        }
+
+        if self.ble.observer_timeout_secs > 60 {
+            return Err(ConfigError::Message(
+                "BLE observer_timeout_secs should not exceed 60 seconds".to_string(),
+            ));
+        }
+
+        Ok(())
     }
 
     /// Get the full listen address (host:port)
@@ -85,9 +175,8 @@ impl Settings {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_listen_address_format() {
-        let settings = Settings {
+    fn create_valid_settings() -> Settings {
+        Settings {
             api: ApiConfig {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
@@ -106,8 +195,181 @@ mod tests {
                 connection_timeout_secs: 10,
                 observer_timeout_secs: 5,
             },
-        };
+        }
+    }
 
+    #[test]
+    fn test_listen_address_format() {
+        let settings = create_valid_settings();
         assert_eq!(settings.listen_address(), "127.0.0.1:8080");
+    }
+
+    #[test]
+    fn test_validation_valid_config() {
+        let settings = create_valid_settings();
+        assert!(settings.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validation_api_port_zero() {
+        let mut settings = create_valid_settings();
+        settings.api.port = 0;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("port must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validation_api_host_empty() {
+        let mut settings = create_valid_settings();
+        settings.api.host = String::new();
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("host cannot be empty"));
+    }
+
+    #[test]
+    fn test_validation_log_level_invalid() {
+        let mut settings = create_valid_settings();
+        settings.api.log_level = "invalid".to_string();
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Must be one of"));
+    }
+
+    #[test]
+    fn test_validation_log_level_case_insensitive() {
+        let mut settings = create_valid_settings();
+        settings.api.log_level = "INFO".to_string();
+        assert!(settings.validate().is_ok());
+
+        settings.api.log_level = "Error".to_string();
+        assert!(settings.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validation_mqtt_broker_empty() {
+        let mut settings = create_valid_settings();
+        settings.mqtt.broker = String::new();
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("broker cannot be empty"));
+    }
+
+    #[test]
+    fn test_validation_mqtt_port_zero() {
+        let mut settings = create_valid_settings();
+        settings.mqtt.port = 0;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("port must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validation_mqtt_client_id_empty() {
+        let mut settings = create_valid_settings();
+        settings.mqtt.client_id = String::new();
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("client_id cannot be empty"));
+    }
+
+    #[test]
+    fn test_validation_mqtt_topic_empty() {
+        let mut settings = create_valid_settings();
+        settings.mqtt.topic = String::new();
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("topic cannot be empty"));
+    }
+
+    #[test]
+    fn test_validation_mqtt_keep_alive_zero() {
+        let mut settings = create_valid_settings();
+        settings.mqtt.keep_alive_secs = 0;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("keep_alive_secs must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validation_mqtt_keep_alive_too_large() {
+        let mut settings = create_valid_settings();
+        settings.mqtt.keep_alive_secs = 70000;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("keep_alive_secs must be less than or equal to 65535"));
+    }
+
+    #[test]
+    fn test_validation_ble_connection_timeout_zero() {
+        let mut settings = create_valid_settings();
+        settings.ble.connection_timeout_secs = 0;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("connection_timeout_secs must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validation_ble_connection_timeout_too_large() {
+        let mut settings = create_valid_settings();
+        settings.ble.connection_timeout_secs = 400;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("should not exceed 300 seconds"));
+    }
+
+    #[test]
+    fn test_validation_ble_observer_timeout_zero() {
+        let mut settings = create_valid_settings();
+        settings.ble.observer_timeout_secs = 0;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("observer_timeout_secs must be greater than 0"));
+    }
+
+    #[test]
+    fn test_validation_ble_observer_timeout_too_large() {
+        let mut settings = create_valid_settings();
+        settings.ble.observer_timeout_secs = 100;
+        let result = settings.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("should not exceed 60 seconds"));
     }
 }

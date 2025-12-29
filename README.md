@@ -89,9 +89,9 @@ cargo test
 
 ### Test breakdown
 
-- **Unit tests**: 35 tests (services + controllers)
+- **Unit tests**: 50 tests (services + controllers + configuration)
 - **Integration tests**: 17 tests (API endpoints)
-- **Total**: 52 tests
+- **Total**: 67 tests
 
 ### Integration tests
 

@@ -1,0 +1,17 @@
+# Invalid test configuration for validation testing
+[api]
+host = ""  # Invalid - empty host
+port = 0   # Invalid - zero port
+log_level = "invalid"  # Invalid - not a valid log level
+
+[mqtt]
+broker = "localhost"
+port = 0  # Invalid - zero port
+client_id = "test-client"
+keep_alive_secs = 5
+topic = "sensors/vent"
+
+[ble]
+enable_scan = true
+connection_timeout_secs = 10
+observer_timeout_secs = 5
