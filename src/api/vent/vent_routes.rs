@@ -8,12 +8,15 @@ use super::vent_controller::{
     self, ConnectRequest, ConnectResponse, DiscoveredDevicesResponse, MessageResponse, ScanRequest,
     VentStatusResponse,
 };
+use crate::api::health::health_controller;
 use crate::api::mqtt::mqtt_routes;
 use crate::state::ApplicationState;
 
 pub fn build_router(state: ApplicationState) -> Router {
     // Version 1 API routes
     let v1_routes = Router::new()
+        // Health check
+        .route("/health", get(health_check))
         // BLE operations
         .route("/ble/scan", post(ble_scan))
         .route("/ble/stop-scan", post(ble_stop_scan))
@@ -28,6 +31,11 @@ pub fn build_router(state: ApplicationState) -> Router {
         .nest("/mqtt", mqtt_routes::mqtt_routes());
 
     Router::new().nest("/api/v1", v1_routes).with_state(state)
+}
+
+/// Health check endpoint
+async fn health_check(State(state): State<ApplicationState>) -> impl axum::response::IntoResponse {
+    health_controller::health_check(&state).await
 }
 
 /// Initialize BLE scanning

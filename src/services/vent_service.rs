@@ -54,6 +54,11 @@ impl VentService {
         self.ble_service.register_observer(observer).await;
     }
 
+    /// Check if a BLE adapter is available
+    pub async fn has_adapter(&self) -> bool {
+        self.ble_service.get_default_adapter().is_some()
+    }
+
     pub async fn initialize(&self) -> Result<(), AppError> {
         debug!("Initializing BLE scan");
         let adapter = self

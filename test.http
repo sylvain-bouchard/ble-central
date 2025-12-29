@@ -1,6 +1,9 @@
 # @apiUrl = http://192.168.0.36:8080
 @apiUrl = http://localhost:8080
 
+### Health check
+GET {{apiUrl}}/api/v1/health
+
 ### Start BLE scan
 POST {{apiUrl}}/api/v1/ble/scan
 Content-Type: application/json

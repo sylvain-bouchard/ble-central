@@ -18,6 +18,35 @@ All endpoints are versioned under `/api/v1`. This allows for backward compatibil
 
 ---
 
+## Health Check
+
+### Health Status
+
+**Endpoint:** `GET /api/v1/health`
+
+**Description:** Returns the health status of the application and its services. Useful for monitoring, load balancers, and orchestration systems.
+
+**Response (Success - 200):**
+
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "uptime_seconds": 3600,
+  "services": {
+    "ble": "ok",
+    "mqtt": "ok"
+  }
+}
+```
+
+**Service Status Values:**
+
+- `ble`: `"ok"` (adapter available) or `"no_adapter"` (no BLE adapter found)
+- `mqtt`: `"ok"` (service running and auto-reconnecting)
+
+---
+
 ## BLE Operations
 
 ### 1. Start BLE Scan

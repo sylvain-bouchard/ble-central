@@ -44,6 +44,9 @@ async fn main() -> Result<(), AppError> {
         std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string())
     );
 
+    // Initialize health check start time
+    api::health::health_controller::init_start_time();
+
     let application =
         application::Application::new(&configuration, &configuration.listen_address()).await?;
 
