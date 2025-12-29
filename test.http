@@ -1,7 +1,8 @@
+# @apiUrl = http://192.168.0.36:8080
 @apiUrl = http://localhost:8080
 
 ### Start BLE scan
-POST {{apiUrl}}/api/ble/scan
+POST {{apiUrl}}/api/v1/ble/scan
 Content-Type: application/json
 
 {
@@ -10,20 +11,21 @@ Content-Type: application/json
 
 
 ### List discovered BLE devices
-GET {{apiUrl}}/api/ble/devices
+GET {{apiUrl}}/api/v1/ble/devices
 
 
 ### Check device availability
-GET {{apiUrl}}/api/vent/status
+GET {{apiUrl}}/api/v1/vent/status
 
 
 ### Connect to BLE device
 ### On Linux, encode the device_id (replace / with %2F)
 ### Example: hci0/dev_67_0C_9D_21_A7_12 → hci0%2Fdev_67_0C_9D_21_A7_12
 
-@device_id = 5c205201-0b65-a9e2-fee7-26f4881acca1
+# @device_id = 5c205201-0b65-a9e2-fee7-26f4881acca1
+@device_id = hci0%2Fdev_74_4D_BD_62_17_B6
 
-POST {{apiUrl}}/api/ble/connect/{{device_id}}
+POST {{apiUrl}}/api/v1/ble/connect/{{device_id}}
 Content-Type: application/json
 
 {
@@ -31,25 +33,25 @@ Content-Type: application/json
 }
 
 ### Open vent
-POST {{apiUrl}}/api/vent/open
+POST {{apiUrl}}/api/v1/vent/open
 
 ### Close vent
-POST {{apiUrl}}/api/vent/close
+POST {{apiUrl}}/api/v1/vent/close
 ### Disconnect from device
-POST {{apiUrl}}/api/vent/disconnect
+POST {{apiUrl}}/api/v1/vent/disconnect
 
 ### Stop BLE scan
-POST {{apiUrl}}/api/ble/stop-scan
+POST {{apiUrl}}/api/v1/ble/stop-scan
 
 ##########################
 # MQTT Operations
 ##########################
 
 ### Get MQTT status
-GET {{apiUrl}}/api/mqtt/status
+GET {{apiUrl}}/api/v1/mqtt/status
 
 ### Publish a simple text message to MQTT
-POST {{apiUrl}}/api/mqtt/publish
+POST {{apiUrl}}/api/v1/mqtt/publish
 Content-Type: application/json
 
 {
@@ -59,7 +61,7 @@ Content-Type: application/json
 }
 
 ### Publish JSON data to MQTT
-POST {{apiUrl}}/api/mqtt/publish/json
+POST {{apiUrl}}/api/v1/mqtt/publish/json
 Content-Type: application/json
 
 {

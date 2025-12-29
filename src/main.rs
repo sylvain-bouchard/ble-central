@@ -13,6 +13,12 @@ mod state;
 use error::AppError;
 
 /// BLE Central Gateway - Converts BLE sensor data to MQTT messages
+///
+/// ## API Versioning
+///
+/// All API endpoints are versioned under `/api/v1` to allow for backward
+/// compatibility when introducing breaking changes in future versions.
+/// This follows REST API best practices and enables smooth migrations.
 #[derive(Parser, Debug)]
 #[command(name = "ble-central-gateway")]
 #[command(about = "BLE to MQTT Bridge Gateway", long_about = None)]

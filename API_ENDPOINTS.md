@@ -10,13 +10,19 @@ The BLE Central Gateway provides REST API endpoints for scanning, connecting to,
 http://localhost:8080
 ```
 
+## API Versioning
+
+All endpoints are versioned under `/api/v1`. This allows for backward compatibility when introducing breaking changes in future versions.
+
+**Current Version:** v1
+
 ---
 
 ## BLE Operations
 
 ### 1. Start BLE Scan
 
-**Endpoint:** `POST /api/ble/scan`
+**Endpoint:** `POST /api/v1/ble/scan`
 
 **Description:** Initializes BLE scanning to discover nearby devices.
 
@@ -49,7 +55,7 @@ http://localhost:8080
 
 ### 2. Connect to Device
 
-**Endpoint:** `POST /api/ble/connect/:device_id`
+**Endpoint:** `POST /api/v1/ble/connect/:device_id`
 
 **Description:** Connects to a discovered BLE device by its ID.
 
@@ -90,7 +96,7 @@ http://localhost:8080
 
 ### 3. Open Vent
 
-**Endpoint:** `POST /api/vent/open`
+**Endpoint:** `POST /api/v1/vent/open`
 
 **Description:** Sends a command to the connected BLE device to open the vent.
 
@@ -117,7 +123,7 @@ http://localhost:8080
 
 ### 4. Close Vent
 
-**Endpoint:** `POST /api/vent/close`
+**Endpoint:** `POST /api/v1/vent/close`
 
 **Description:** Sends a command to the connected BLE device to close the vent.
 
@@ -144,7 +150,7 @@ http://localhost:8080
 
 ### 5. Get Vent Status
 
-**Endpoint:** `GET /api/vent/status`
+**Endpoint:** `GET /api/v1/vent/status`
 
 **Description:** Retrieves the current status of the vent (Connected/Disconnected/Open/Closed).
 
@@ -160,7 +166,7 @@ http://localhost:8080
 
 ### 6. Disconnect from Device
 
-**Endpoint:** `POST /api/vent/disconnect`
+**Endpoint:** `POST /api/v1/vent/disconnect`
 
 **Description:** Disconnects from the currently connected BLE device.
 
@@ -236,7 +242,7 @@ The gateway automatically publishes sensor data from BLE devices to an MQTT brok
 
 ### 7. Get MQTT Status
 
-**Endpoint:** `GET /api/mqtt/status`
+**Endpoint:** `GET /api/v1/mqtt/status`
 
 **Description:** Check the status of the MQTT connection and service.
 
@@ -253,7 +259,7 @@ The gateway automatically publishes sensor data from BLE devices to an MQTT brok
 
 ### 8. Manually Publish Message
 
-**Endpoint:** `POST /api/mqtt/publish`
+**Endpoint:** `POST /api/v1/mqtt/publish`
 
 **Description:** Manually publish a text message to a specific MQTT topic.
 
@@ -296,7 +302,7 @@ curl -X POST http://localhost:8080/api/mqtt/publish \
 
 ### 9. Publish JSON Data
 
-**Endpoint:** `POST /api/mqtt/publish/json`
+**Endpoint:** `POST /api/v1/mqtt/publish/json`
 
 **Description:** Publish JSON-formatted data to a specific MQTT topic.
 
