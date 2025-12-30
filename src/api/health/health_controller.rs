@@ -43,12 +43,20 @@ pub async fn health_check(state: &ApplicationState) -> Json<HealthResponse> {
         "no_adapter".to_string()
     };
 
-    // MQTT is always considered healthy if the service exists
-    // (it reconnects automatically on errors)
-    let mqtt_status = "ok".to_string();
+    let mqtt_status = if state.mqtt_service.is_connected().await {
+        "ok".to_string()
+    } else {
+        "disconnected".to_string()
+    };
+
+    let overall_status = if ble_status == "ok" && mqtt_status == "ok" {
+        "ok".to_string()
+    } else {
+        "degraded".to_string()
+    };
 
     Json(HealthResponse {
-        status: "ok".to_string(),
+        status: overall_status,
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds,
         services: ServiceHealth {
