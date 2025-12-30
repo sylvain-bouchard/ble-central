@@ -12,6 +12,10 @@ use tracing::{debug, info};
 // BLE Characteristic UUIDs
 const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic
 
+// Vent command bytes
+const VENT_CMD_OPEN: u8 = 0x01;
+const VENT_CMD_CLOSE: u8 = 0x02;
+
 // Compile-time validation that STATUS_UUID is a valid UUID
 #[allow(dead_code)]
 const fn validate_status_uuid() {
@@ -150,8 +154,8 @@ impl VentService {
                         if !notification.value.is_empty() {
                             let status_byte = notification.value[0];
                             let new_status = match status_byte {
-                                0x01 => VentStatus::Open,
-                                0x02 => VentStatus::Closed,
+                                VENT_CMD_OPEN => VentStatus::Open,
+                                VENT_CMD_CLOSE => VentStatus::Closed,
                                 _ => VentStatus::Disconnected,
                             };
                             *vent_status_clone.write().await = new_status;
@@ -184,7 +188,7 @@ impl VentService {
         // Device will receive this and update its state
         // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(&peripheral, STATUS_UUID, &[0x01])
+            .write_characteristic(&peripheral, STATUS_UUID, &[VENT_CMD_OPEN])
             .await?;
 
         Ok(())
@@ -201,7 +205,7 @@ impl VentService {
         // Device will receive this and update its state
         // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(&peripheral, STATUS_UUID, &[0x02])
+            .write_characteristic(&peripheral, STATUS_UUID, &[VENT_CMD_CLOSE])
             .await?;
 
         Ok(())
