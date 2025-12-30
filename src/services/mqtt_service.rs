@@ -11,6 +11,7 @@ use crate::services::ble_service::BleDataObserver;
 pub struct MqttService {
     client: AsyncClient,
     topic: String,
+    manufacturer_id: u16,
 }
 
 impl MqttService {
@@ -21,6 +22,7 @@ impl MqttService {
         client_id: &str,
         topic: &str,
         keep_alive_secs: u64,
+        manufacturer_id: u16,
     ) -> Result<Self, AppError> {
         let mut mqtt_options = MqttOptions::new(client_id, broker, port);
         mqtt_options.set_keep_alive(Duration::from_secs(keep_alive_secs));
@@ -69,6 +71,7 @@ impl MqttService {
         Ok(MqttService {
             client,
             topic: topic.to_string(),
+            manufacturer_id,
         })
     }
 
@@ -126,8 +129,8 @@ impl MqttService {
 #[async_trait::async_trait]
 impl BleDataObserver for MqttService {
     async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Arc<[u8]>) {
-        // Only process manufacturer ID 0xFFFF (65535)
-        if manufacturer_id != 0xFFFF {
+        // Only process the configured manufacturer ID
+        if manufacturer_id != self.manufacturer_id {
             return;
         }
 

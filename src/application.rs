@@ -28,6 +28,7 @@ impl Application {
                 &config.mqtt.client_id,
                 &config.mqtt.topic,
                 config.mqtt.keep_alive_secs,
+                config.mqtt.manufacturer_id,
             )
             .await?,
         );

@@ -24,6 +24,7 @@ pub struct MqttConfig {
     pub client_id: String,
     pub keep_alive_secs: u64,
     pub topic: String,
+    pub manufacturer_id: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,6 +138,9 @@ impl Settings {
             ));
         }
 
+        // manufacturer_id is u16, so it's already validated by type (0-65535)
+        // No additional validation needed unless we want to restrict specific values
+
         // Validate BLE configuration
         if self.ble.connection_timeout_secs == 0 {
             return Err(ConfigError::Message(
@@ -188,6 +192,7 @@ mod tests {
                 client_id: "test".to_string(),
                 keep_alive_secs: 5,
                 topic: "sensors/vent".to_string(),
+                manufacturer_id: 0xFFFF,
             },
             ble: BleConfig {
                 enable_scan: true,

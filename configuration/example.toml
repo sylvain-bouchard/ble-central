@@ -8,6 +8,7 @@ broker = "mqtt.example.com"
 port = 1883
 client_id = "ble_gateway_prod"
 keep_alive_secs = 30
+manufacturer_id = 0xFFFF  # 65535 - Default BLE manufacturer ID for sensor devices
 
 [ble]
 enable_scan = true
