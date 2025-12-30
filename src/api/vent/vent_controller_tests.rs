@@ -1,6 +1,6 @@
 use crate::api::vent::vent_controller::{self, ConnectRequest, ScanRequest};
 use crate::services::ble_service::BleService;
-use crate::services::mqtt_service::MqttService;
+use crate::services::mqtt_service::{MqttService, MqttServiceConfig};
 use crate::services::vent_service::VentService;
 use crate::state::ApplicationState;
 use std::sync::Arc;
@@ -13,24 +13,32 @@ async fn create_test_app_state() -> ApplicationState {
 
     // Try to create MQTT service, but if it fails (no broker), use a test instance
     // In a real test environment, you'd use a mock MQTT service
-    let mqtt_service =
-        match MqttService::new("localhost", 1883, "test-client", "sensors/vent", 5, 0xFFFF).await {
-            Ok(service) => service,
-            Err(_) => {
-                // Fallback: create with a non-existent broker for testing
-                // The service will still be created but will log connection errors
-                MqttService::new(
-                    "127.0.0.1",
-                    18830,
-                    "test-fallback",
-                    "sensors/vent",
-                    5,
-                    0xFFFF,
-                )
-                .await
-                .expect("Failed to create fallback MQTT service")
-            }
-        };
+    let mqtt_service = match MqttService::new(MqttServiceConfig {
+        broker: "localhost".to_string(),
+        port: 1883,
+        client_id: "test-client".to_string(),
+        topic: "sensors/vent".to_string(),
+        keep_alive_secs: 5,
+        manufacturer_id: 0xFFFF,
+    })
+    .await
+    {
+        Ok(service) => service,
+        Err(_) => {
+            // Fallback: create with a non-existent broker for testing
+            // The service will still be created but will log connection errors
+            MqttService::new(MqttServiceConfig {
+                broker: "127.0.0.1".to_string(),
+                port: 18830,
+                client_id: "test-fallback".to_string(),
+                topic: "sensors/vent".to_string(),
+                keep_alive_secs: 5,
+                manufacturer_id: 0xFFFF,
+            })
+            .await
+            .expect("Failed to create fallback MQTT service")
+        }
+    };
 
     ApplicationState {
         vent_service: Arc::new(vent_service),

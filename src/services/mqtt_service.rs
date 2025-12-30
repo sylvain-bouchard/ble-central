@@ -7,6 +7,29 @@ use crate::domain::sensor::{SensorData, SensorReadings};
 use crate::error::AppError;
 use crate::services::ble_service::BleDataObserver;
 
+#[derive(Clone, Debug)]
+pub struct MqttServiceConfig {
+    pub broker: String,
+    pub port: u16,
+    pub client_id: String,
+    pub topic: String,
+    pub keep_alive_secs: u64,
+    pub manufacturer_id: u16,
+}
+
+impl MqttServiceConfig {
+    pub fn from_mqtt_config(config: &crate::configuration::MqttConfig) -> Self {
+        Self {
+            broker: config.broker.clone(),
+            port: config.port,
+            client_id: config.client_id.clone(),
+            topic: config.topic.clone(),
+            keep_alive_secs: config.keep_alive_secs,
+            manufacturer_id: config.manufacturer_id,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct MqttService {
     client: AsyncClient,
@@ -16,16 +39,9 @@ pub struct MqttService {
 
 impl MqttService {
     /// Create a new MqttService with the given broker configuration
-    pub async fn new(
-        broker: &str,
-        port: u16,
-        client_id: &str,
-        topic: &str,
-        keep_alive_secs: u64,
-        manufacturer_id: u16,
-    ) -> Result<Self, AppError> {
-        let mut mqtt_options = MqttOptions::new(client_id, broker, port);
-        mqtt_options.set_keep_alive(Duration::from_secs(keep_alive_secs));
+    pub async fn new(config: MqttServiceConfig) -> Result<Self, AppError> {
+        let mut mqtt_options = MqttOptions::new(&config.client_id, &config.broker, config.port);
+        mqtt_options.set_keep_alive(Duration::from_secs(config.keep_alive_secs));
 
         let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
 
@@ -70,8 +86,8 @@ impl MqttService {
 
         Ok(MqttService {
             client,
-            topic: topic.to_string(),
-            manufacturer_id,
+            topic: config.topic,
+            manufacturer_id: config.manufacturer_id,
         })
     }
 

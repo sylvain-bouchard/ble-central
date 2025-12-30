@@ -10,7 +10,11 @@ use serde_json::{json, Value};
 mod test_helpers {
     use ble_central_gateway::{
         api::vent::vent_routes::build_router,
-        services::{ble_service::BleService, mqtt_service::MqttService, vent_service::VentService},
+        services::{
+            ble_service::BleService,
+            mqtt_service::{MqttService, MqttServiceConfig},
+            vent_service::VentService,
+        },
         state::ApplicationState,
     };
     use std::sync::Arc;
@@ -26,15 +30,20 @@ mod test_helpers {
 
         // Use a test MQTT broker (may fail to connect, but that's ok for testing)
         let mqtt_service = Arc::new(
-            MqttService::new("127.0.0.1", 1883, "test_client", "test/topic", 5, 0xFFFF)
-                .await
-                .unwrap_or_else(|_| {
-                    // If MQTT fails, we still need a service for testing
-                    // The service will handle connection errors gracefully
-                    panic!(
-                        "MQTT service creation failed - this is expected if no broker is running"
-                    )
-                }),
+            MqttService::new(MqttServiceConfig {
+                broker: "127.0.0.1".to_string(),
+                port: 1883,
+                client_id: "test_client".to_string(),
+                topic: "test/topic".to_string(),
+                keep_alive_secs: 5,
+                manufacturer_id: 0xFFFF,
+            })
+            .await
+            .unwrap_or_else(|_| {
+                // If MQTT fails, we still need a service for testing
+                // The service will handle connection errors gracefully
+                panic!("MQTT service creation failed - this is expected if no broker is running")
+            }),
         );
 
         ApplicationState {

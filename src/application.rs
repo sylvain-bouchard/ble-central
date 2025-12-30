@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::configuration::Settings;
 use crate::error::AppError;
 use crate::services::ble_service::BleService;
-use crate::services::mqtt_service::MqttService;
+use crate::services::mqtt_service::{MqttService, MqttServiceConfig};
 use crate::services::vent_service::VentService;
 use crate::state::ApplicationState;
 
@@ -21,17 +21,8 @@ impl Application {
             ble_service,
             config.ble.connection_timeout_secs,
         ));
-        let mqtt_service = Arc::new(
-            MqttService::new(
-                &config.mqtt.broker,
-                config.mqtt.port,
-                &config.mqtt.client_id,
-                &config.mqtt.topic,
-                config.mqtt.keep_alive_secs,
-                config.mqtt.manufacturer_id,
-            )
-            .await?,
-        );
+        let mqtt_service =
+            Arc::new(MqttService::new(MqttServiceConfig::from_mqtt_config(&config.mqtt)).await?);
 
         // Register MQTT service as an observer to BLE service for sensor data
         vent_service
