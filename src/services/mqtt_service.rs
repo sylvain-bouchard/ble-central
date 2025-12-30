@@ -1,7 +1,7 @@
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::domain::sensor::{SensorData, SensorReadings};
 use crate::error::AppError;
@@ -109,9 +109,11 @@ impl MqttService {
         qos: QoS,
     ) -> Result<(), AppError> {
         self.client.publish(topic, qos, false, payload).await?;
-        info!(
-            "Published to {}: {:?}",
+        debug!(
+            "Published to {} ({} bytes, QoS {:?}): {}",
             topic,
+            payload.len(),
+            qos,
             String::from_utf8_lossy(payload)
         );
         Ok(())
@@ -168,7 +170,7 @@ impl BleDataObserver for MqttService {
                 {
                     error!("Failed to publish sensor data to MQTT: {:?}", error);
                 } else {
-                    info!("Published sensor data to {}: {}", self.topic, payload);
+                    info!("Published sensor data from {} to {}", id, self.topic);
                 }
             }
             None => {
