@@ -1,6 +1,7 @@
-use rumqttc::{AsyncClient, MqttOptions, QoS};
+use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::domain::sensor::{SensorData, SensorReadings};
@@ -35,6 +36,7 @@ pub struct MqttService {
     client: AsyncClient,
     topic: String,
     manufacturer_id: u16,
+    connected: Arc<RwLock<bool>>,
 }
 
 impl MqttService {
@@ -45,6 +47,9 @@ impl MqttService {
 
         let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
 
+        let connected = Arc::new(RwLock::new(false));
+        let connected_clone = Arc::clone(&connected);
+
         // Spawn a task to handle MQTT events with error throttling
         tokio::spawn(async move {
             let mut last_error: Option<String> = None;
@@ -52,33 +57,57 @@ impl MqttService {
             let mut suppressed = false;
 
             loop {
-                if let Err(e) = eventloop.poll().await {
-                    let error_msg = format!("{:?}", e);
+                match eventloop.poll().await {
+                    Ok(event) => {
+                        // Update connection status based on events
+                        match event {
+                            Event::Incoming(Packet::ConnAck(_)) => {
+                                *connected_clone.write().await = true;
+                                info!("MQTT client connected");
 
-                    // Check if this is the same error as before
-                    if last_error.as_ref() == Some(&error_msg) {
-                        consecutive_count += 1;
+                                // Clear error state on successful connection
+                                if last_error.is_some() && consecutive_count > 0 {
+                                    info!(
+                                        "MQTT connection recovered after {} errors",
+                                        consecutive_count + 1
+                                    );
+                                }
+                                last_error = None;
+                                consecutive_count = 0;
+                                suppressed = false;
+                            }
+                            _ => {}
+                        }
+                    }
+                    Err(e) => {
+                        *connected_clone.write().await = false;
+                        let error_msg = format!("{:?}", e);
 
-                        // Log warning only once when hitting 10 repetitions
-                        if consecutive_count == 10 && !suppressed {
-                            warn!(
-                                "MQTT error: {} (repeated {} times, suppressing further messages)",
-                                error_msg, consecutive_count
-                            );
-                            suppressed = true;
+                        // Check if this is the same error as before
+                        if last_error.as_ref() == Some(&error_msg) {
+                            consecutive_count += 1;
+
+                            // Log warning only once when hitting 10 repetitions
+                            if consecutive_count == 10 && !suppressed {
+                                warn!(
+                                    "MQTT error: {} (repeated {} times, suppressing further messages)",
+                                    error_msg, consecutive_count
+                                );
+                                suppressed = true;
+                            }
+                        } else {
+                            // New error type
+                            if last_error.is_some() && consecutive_count > 0 {
+                                info!(
+                                    "Previous MQTT error resolved after {} occurrences",
+                                    consecutive_count + 1
+                                );
+                            }
+                            error!("MQTT error: {}", error_msg);
+                            last_error = Some(error_msg);
+                            consecutive_count = 0;
+                            suppressed = false;
                         }
-                    } else {
-                        // New error type
-                        if last_error.is_some() && consecutive_count > 0 {
-                            info!(
-                                "Previous MQTT error resolved after {} occurrences",
-                                consecutive_count + 1
-                            );
-                        }
-                        error!("MQTT error: {}", error_msg);
-                        last_error = Some(error_msg);
-                        consecutive_count = 0;
-                        suppressed = false;
                     }
                 }
             }
@@ -88,6 +117,7 @@ impl MqttService {
             client,
             topic: config.topic,
             manufacturer_id: config.manufacturer_id,
+            connected,
         })
     }
 
@@ -99,6 +129,11 @@ impl MqttService {
         } else {
             info!("MQTT client disconnected");
         }
+    }
+
+    /// Check if the MQTT client is connected
+    pub async fn is_connected(&self) -> bool {
+        *self.connected.read().await
     }
 
     /// Send an MQTT message to the specified topic

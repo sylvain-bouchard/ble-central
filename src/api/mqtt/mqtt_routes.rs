@@ -14,8 +14,10 @@ pub fn mqtt_routes() -> Router<ApplicationState> {
         .route("/publish/json", post(publish_json_handler))
 }
 
-async fn mqtt_status_handler() -> impl axum::response::IntoResponse {
-    mqtt_controller::get_status().await
+async fn mqtt_status_handler(
+    State(state): State<ApplicationState>,
+) -> impl axum::response::IntoResponse {
+    mqtt_controller::get_status(state).await
 }
 
 async fn publish_message_handler(

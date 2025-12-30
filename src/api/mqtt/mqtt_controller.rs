@@ -32,15 +32,22 @@ pub struct MqttStatusResponse {
 }
 
 /// Get MQTT connection status
-pub async fn get_status() -> impl IntoResponse {
+pub async fn get_status(state: ApplicationState) -> impl IntoResponse {
     info!("MQTT status requested");
-    
-    // Since MqttService is actively running if the app started,
-    // we can return connected status
-    Json(json!({
-        "status": "connected",
-        "message": "MQTT service is active and monitoring sensor data"
-    }))
+
+    let is_connected = state.mqtt_service.is_connected().await;
+
+    if is_connected {
+        Json(json!({
+            "status": "connected",
+            "message": "MQTT service is connected and monitoring sensor data"
+        }))
+    } else {
+        Json(json!({
+            "status": "disconnected",
+            "message": "MQTT service is disconnected or attempting to reconnect"
+        }))
+    }
 }
 
 /// Manually publish a message to MQTT broker
@@ -92,12 +99,9 @@ pub async fn publish_json(
         .get("topic")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError::InvalidInput("Missing 'topic' field".to_string()))?;
-    
-    let qos_value = request
-        .get("qos")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u8;
-    
+
+    let qos_value = request.get("qos").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
+
     let payload = request
         .get("payload")
         .ok_or_else(|| AppError::InvalidInput("Missing 'payload' field".to_string()))?;
@@ -136,10 +140,40 @@ pub async fn publish_json(
 #[cfg(test)]
 mod mqtt_controller_tests {
     use super::*;
+    use crate::services::ble_service::BleService;
+    use crate::services::mqtt_service::{MqttService, MqttServiceConfig};
+    use crate::services::vent_service::VentService;
+    use crate::state::ApplicationState;
+    use std::sync::Arc;
+
+    async fn create_test_state() -> ApplicationState {
+        let ble_service = BleService::new(5)
+            .await
+            .expect("Failed to create BLE service");
+        let vent_service = Arc::new(VentService::new(ble_service, 10));
+        let mqtt_service = Arc::new(
+            MqttService::new(MqttServiceConfig {
+                broker: "127.0.0.1".to_string(),
+                port: 18830,
+                client_id: "test-client".to_string(),
+                topic: "test/topic".to_string(),
+                keep_alive_secs: 5,
+                manufacturer_id: 0xFFFF,
+            })
+            .await
+            .expect("Failed to create MQTT service"),
+        );
+
+        ApplicationState {
+            vent_service,
+            mqtt_service,
+        }
+    }
 
     #[tokio::test]
     async fn test_get_status() {
-        let response = get_status().await.into_response();
+        let state = create_test_state().await;
+        let response = get_status(state).await.into_response();
         assert_eq!(response.status(), StatusCode::OK);
     }
 
