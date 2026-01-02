@@ -6,7 +6,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::domain::sensor::{SensorData, SensorReadings};
 use crate::error::AppError;
-use crate::services::ble_service::BleDataObserver;
+use crate::services::ble::BleDataObserver;
 
 #[derive(Clone, Debug)]
 pub struct MqttServiceConfig {

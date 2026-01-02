@@ -16,6 +16,10 @@ pub enum AppError {
     #[error("BLE error: {0}")]
     Ble(#[from] btleplug::Error),
 
+    /// BLE backend errors
+    #[error("BLE backend error: {0}")]
+    BleBackend(#[from] crate::services::ble::error::BleError),
+
     /// MQTT-related errors
     #[error("MQTT error: {0}")]
     Mqtt(String),
@@ -60,7 +64,7 @@ impl IntoResponse for AppError {
             AppError::NotConnected => (StatusCode::BAD_REQUEST, self.to_string()),
             AppError::InvalidInput(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             AppError::NoAdapter => (StatusCode::SERVICE_UNAVAILABLE, self.to_string()),
-            AppError::Ble(_) | AppError::Mqtt(_) => {
+            AppError::Ble(_) | AppError::BleBackend(_) | AppError::Mqtt(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, self.to_string())
             }
             AppError::Config(_) | AppError::Internal(_) => {

@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use super::super::DefaultApplicationState;
 use crate::error::AppError;
 use crate::services::vent_service::DiscoveredDevice;
-use crate::state::ApplicationState;
 
 // Request/Response types
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ pub struct DiscoveredDevicesResponse {
 
 /// Initialize BLE scanning
 pub async fn scan(
-    state: &ApplicationState,
+    state: &DefaultApplicationState,
     _payload: ScanRequest,
 ) -> Result<MessageResponse, AppError> {
     state.vent_service.initialize().await?;
@@ -56,7 +56,7 @@ pub async fn scan(
 
 /// Connect to a discovered BLE device
 pub async fn connect(
-    state: &ApplicationState,
+    state: &DefaultApplicationState,
     device_id: String,
     payload: ConnectRequest,
 ) -> Result<ConnectResponse, AppError> {
@@ -74,7 +74,7 @@ pub async fn connect(
 }
 
 /// Open the vent via BLE
-pub async fn open(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+pub async fn open(state: &DefaultApplicationState) -> Result<MessageResponse, AppError> {
     state.vent_service.open_vent().await?;
 
     Ok(MessageResponse {
@@ -84,7 +84,7 @@ pub async fn open(state: &ApplicationState) -> Result<MessageResponse, AppError>
 }
 
 /// Close the vent via BLE
-pub async fn close(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+pub async fn close(state: &DefaultApplicationState) -> Result<MessageResponse, AppError> {
     state.vent_service.close_vent().await?;
 
     Ok(MessageResponse {
@@ -94,7 +94,7 @@ pub async fn close(state: &ApplicationState) -> Result<MessageResponse, AppError
 }
 
 /// Get current vent status
-pub async fn status(state: &ApplicationState) -> VentStatusResponse {
+pub async fn status(state: &DefaultApplicationState) -> VentStatusResponse {
     let status = state.vent_service.get_vent_status().await;
     VentStatusResponse {
         status: format!("{:?}", status),
@@ -102,7 +102,7 @@ pub async fn status(state: &ApplicationState) -> VentStatusResponse {
 }
 
 /// Disconnect from the device
-pub async fn disconnect(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+pub async fn disconnect(state: &DefaultApplicationState) -> Result<MessageResponse, AppError> {
     state.vent_service.disconnect().await?;
 
     Ok(MessageResponse {
@@ -112,7 +112,7 @@ pub async fn disconnect(state: &ApplicationState) -> Result<MessageResponse, App
 }
 
 /// Stop BLE scanning without connecting
-pub async fn stop_scan(state: &ApplicationState) -> Result<MessageResponse, AppError> {
+pub async fn stop_scan(state: &DefaultApplicationState) -> Result<MessageResponse, AppError> {
     state.vent_service.stop_scanning().await?;
 
     Ok(MessageResponse {
@@ -122,7 +122,7 @@ pub async fn stop_scan(state: &ApplicationState) -> Result<MessageResponse, AppE
 }
 
 /// Get list of discovered BLE devices
-pub async fn list_discovered_devices(state: &ApplicationState) -> DiscoveredDevicesResponse {
+pub async fn list_discovered_devices(state: &DefaultApplicationState) -> DiscoveredDevicesResponse {
     let devices = state.vent_service.get_discovered_devices().await;
     DiscoveredDevicesResponse { devices }
 }

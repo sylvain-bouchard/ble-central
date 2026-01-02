@@ -8,11 +8,10 @@ use super::vent_controller::{
     self, ConnectRequest, ConnectResponse, DiscoveredDevicesResponse, MessageResponse, ScanRequest,
     VentStatusResponse,
 };
-use crate::api::health::health_controller;
+use crate::api::{health::health_controller, DefaultApplicationState};
 use crate::api::mqtt::mqtt_routes;
-use crate::state::ApplicationState;
 
-pub fn build_router(state: ApplicationState) -> Router {
+pub fn build_router(state: DefaultApplicationState) -> Router {
     // Version 1 API routes
     let v1_routes = Router::new()
         // Health check
@@ -34,13 +33,13 @@ pub fn build_router(state: ApplicationState) -> Router {
 }
 
 /// Health check endpoint
-async fn health_check(State(state): State<ApplicationState>) -> impl axum::response::IntoResponse {
+async fn health_check(State(state): State<DefaultApplicationState>) -> impl axum::response::IntoResponse {
     health_controller::health_check(&state).await
 }
 
 /// Initialize BLE scanning
 async fn ble_scan(
-    State(state): State<ApplicationState>,
+    State(state): State<DefaultApplicationState>,
     Json(payload): Json<ScanRequest>,
 ) -> Result<Json<MessageResponse>, impl axum::response::IntoResponse> {
     vent_controller::scan(&state, payload).await.map(Json)
@@ -48,14 +47,14 @@ async fn ble_scan(
 
 /// Stop BLE scanning
 async fn ble_stop_scan(
-    State(state): State<ApplicationState>,
+    State(state): State<DefaultApplicationState>,
 ) -> Result<Json<MessageResponse>, impl axum::response::IntoResponse> {
     vent_controller::stop_scan(&state).await.map(Json)
 }
 
 /// Connect to a discovered BLE device
 async fn ble_connect(
-    State(state): State<ApplicationState>,
+    State(state): State<DefaultApplicationState>,
     Path(device_id): Path<String>,
     Json(payload): Json<ConnectRequest>,
 ) -> Result<Json<ConnectResponse>, impl axum::response::IntoResponse> {
@@ -66,31 +65,31 @@ async fn ble_connect(
 
 /// Open the vent via BLE
 async fn open_vent(
-    State(state): State<ApplicationState>,
+    State(state): State<DefaultApplicationState>,
 ) -> Result<Json<MessageResponse>, impl axum::response::IntoResponse> {
     vent_controller::open(&state).await.map(Json)
 }
 
 /// Close the vent via BLE
 async fn close_vent(
-    State(state): State<ApplicationState>,
+    State(state): State<DefaultApplicationState>,
 ) -> Result<Json<MessageResponse>, impl axum::response::IntoResponse> {
     vent_controller::close(&state).await.map(Json)
 }
 
 /// Get current vent status
-async fn vent_status(State(state): State<ApplicationState>) -> Json<VentStatusResponse> {
+async fn vent_status(State(state): State<DefaultApplicationState>) -> Json<VentStatusResponse> {
     Json(vent_controller::status(&state).await)
 }
 
 /// Disconnect from the device
 async fn vent_disconnect(
-    State(state): State<ApplicationState>,
+    State(state): State<DefaultApplicationState>,
 ) -> Result<Json<MessageResponse>, impl axum::response::IntoResponse> {
     vent_controller::disconnect(&state).await.map(Json)
 }
 
 /// Get list of discovered BLE devices
-async fn ble_devices(State(state): State<ApplicationState>) -> Json<DiscoveredDevicesResponse> {
+async fn ble_devices(State(state): State<DefaultApplicationState>) -> Json<DiscoveredDevicesResponse> {
     Json(vent_controller::list_discovered_devices(&state).await)
 }

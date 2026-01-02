@@ -11,7 +11,7 @@ mod test_helpers {
     use ble_central_gateway::{
         api::vent::vent_routes::build_router,
         services::{
-            ble_service::BleService,
+            ble::{BleService, BtleplugBackend},
             mqtt_service::{MqttService, MqttServiceConfig},
             vent_service::VentService,
         },
@@ -20,11 +20,12 @@ mod test_helpers {
     use std::sync::Arc;
 
     /// Create a test application state for integration testing
-    pub async fn create_test_state() -> ApplicationState {
+    pub async fn create_test_state() -> ApplicationState<BtleplugBackend> {
         // Use minimal configuration for testing
-        let ble_service = BleService::new(5)
-            .await
-            .expect("Failed to create BLE service");
+        let backend = Arc::new(BtleplugBackend::new().await.unwrap_or_else(|_| {
+            panic!("Failed to initialize BtleplugBackend - ensure Bluetooth adapter is available")
+        }));
+        let ble_service = BleService::new(backend, 5);
 
         let vent_service = Arc::new(VentService::new(ble_service, 10));
 

@@ -1,13 +1,12 @@
 use crate::domain::vent::vent::VentStatus;
 use crate::error::AppError;
-use crate::services::ble_service::{BleDataObserver, BleService};
-use btleplug::platform::{Adapter, Peripheral};
-use futures::stream::StreamExt;
+use crate::services::ble::{BleBackend, BleDataObserver, BleService};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info};
+use uuid::Uuid;
 
 // BLE Characteristic UUIDs
 const STATUS_UUID: &str = "0000180b-0000-1000-8000-00805f9b34fb"; // Status characteristic
@@ -32,24 +31,26 @@ pub struct DiscoveredDevice {
     pub name: Option<String>,
 }
 
-pub struct VentService {
-    ble_service: BleService,
-    scanning_adapter: Arc<Mutex<Option<Adapter>>>,
-    connected_device: Arc<Mutex<Option<Peripheral>>>,
+pub struct VentService<B: BleBackend + 'static> {
+    ble_service: BleService<B>,
+    connected_device_id: Arc<Mutex<Option<String>>>,
     vent_status: Arc<RwLock<VentStatus>>,
     discovered_devices: Arc<Mutex<HashMap<String, DiscoveredDevice>>>,
     default_connection_timeout_secs: u64,
+    status_uuid: Uuid,
 }
 
-impl VentService {
-    pub fn new(ble_service: BleService, default_connection_timeout_secs: u64) -> Self {
+impl<B: BleBackend + 'static> VentService<B> {
+    pub fn new(ble_service: BleService<B>, default_connection_timeout_secs: u64) -> Self {
+        let status_uuid = Uuid::parse_str(STATUS_UUID).expect("STATUS_UUID must be a valid UUID");
+
         VentService {
             ble_service,
-            scanning_adapter: Arc::new(Mutex::new(None)),
-            connected_device: Arc::new(Mutex::new(None)),
+            connected_device_id: Arc::new(Mutex::new(None)),
             vent_status: Arc::new(RwLock::new(VentStatus::Disconnected)),
             discovered_devices: Arc::new(Mutex::new(HashMap::new())),
             default_connection_timeout_secs,
+            status_uuid,
         }
     }
 
@@ -60,29 +61,30 @@ impl VentService {
 
     /// Check if a BLE adapter is available
     pub async fn has_adapter(&self) -> bool {
-        self.ble_service.get_default_adapter().is_some()
+        self.ble_service
+            .list_adapters()
+            .await
+            .map(|adapters| !adapters.is_empty())
+            .unwrap_or(false)
     }
 
     pub async fn initialize(&self) -> Result<(), AppError> {
         debug!("Initializing BLE scan");
-        let adapter = self
-            .ble_service
-            .get_default_adapter()
-            .ok_or(AppError::NoAdapter)?;
 
-        debug!("Starting BLE scan with adapter");
-        let rx = self.ble_service.start_scan(&adapter).await?;
-        debug!("BLE scan started, got receiver channel");
+        if !self.has_adapter().await {
+            return Err(AppError::NoAdapter);
+        }
 
-        *self.scanning_adapter.lock().await = Some(adapter);
+        debug!("Starting BLE scan");
+        let (mut device_rx, _manufacturer_rx) = self.ble_service.start_scan().await?;
+        debug!("BLE scan started, got receiver channels");
 
-        // Spawn a task to collect discovered devices with names from advertisement
+        // Spawn a task to collect discovered devices
         let discovered_devices = Arc::clone(&self.discovered_devices);
         tokio::spawn(async move {
             debug!("Device collector task started");
-            let mut rx = rx;
             let mut device_count = 0;
-            while let Some(device_info) = rx.recv().await {
+            while let Some(device_info) = device_rx.recv().await {
                 device_count += 1;
                 debug!(
                     "Received device info #{}: id={}, name={:?}, addr={:?}",
@@ -94,7 +96,6 @@ impl VentService {
                 let (was_added, total_count) = {
                     let mut devices = discovered_devices.lock().await;
                     let was_added = if !devices.contains_key(&device_id) {
-                        // Device info already includes name and address from advertisement
                         devices.insert(
                             device_id.clone(),
                             DiscoveredDevice {
@@ -128,29 +129,29 @@ impl VentService {
 
     /// Connect to a vent device by waiting for discovery
     pub async fn connect(&self, device_id: &str, timeout_secs: u64) -> Result<(), AppError> {
-        let peripheral = self
+        let connected_device_id = self
             .ble_service
             .connect_to_device(device_id, timeout_secs)
             .await?;
 
         // Subscribe to status characteristic notifications
         self.ble_service
-            .subscribe_to_characteristic(&peripheral, STATUS_UUID)
+            .subscribe_to_characteristic(&connected_device_id, self.status_uuid)
             .await?;
 
         // Spawn background task to listen for status notifications
         let vent_status_clone = Arc::clone(&self.vent_status);
-        let peripheral_clone = peripheral.clone();
+        let device_id_clone = connected_device_id.clone();
         let ble_service_clone = self.ble_service.clone();
-        let status_uuid = STATUS_UUID.to_string();
+        let status_uuid = self.status_uuid;
 
         tokio::spawn(async move {
             if let Ok(mut notifications) =
-                ble_service_clone.get_notifications(&peripheral_clone).await
+                ble_service_clone.get_notifications(&device_id_clone).await
             {
-                while let Some(notification) = notifications.next().await {
+                while let Some(notification) = notifications.recv().await {
                     // Check if this notification is from the status characteristic
-                    if notification.uuid.to_string() == status_uuid {
+                    if notification.uuid == status_uuid {
                         if !notification.value.is_empty() {
                             let status_byte = notification.value[0];
                             let new_status = match status_byte {
@@ -166,12 +167,9 @@ impl VentService {
         });
 
         // Stop scanning after successfully connecting
-        let adapter_opt = self.scanning_adapter.lock().await.take();
-        if let Some(adapter) = adapter_opt {
-            let _ = self.ble_service.stop_scan(&adapter).await;
-        }
+        let _ = self.ble_service.stop_scan().await;
 
-        *self.connected_device.lock().await = Some(peripheral);
+        *self.connected_device_id.lock().await = Some(connected_device_id);
         *self.vent_status.write().await = VentStatus::Connected;
 
         Ok(())
@@ -179,8 +177,8 @@ impl VentService {
 
     /// Open the vent by sending a command to the BLE device
     pub async fn open_vent(&self) -> Result<(), AppError> {
-        let peripheral = {
-            let device = self.connected_device.lock().await;
+        let device_id = {
+            let device = self.connected_device_id.lock().await;
             device.as_ref().ok_or(AppError::NotConnected)?.clone()
         };
 
@@ -188,7 +186,7 @@ impl VentService {
         // Device will receive this and update its state
         // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(&peripheral, STATUS_UUID, &[VENT_CMD_OPEN])
+            .write_characteristic(&device_id, self.status_uuid, &[VENT_CMD_OPEN])
             .await?;
 
         Ok(())
@@ -196,8 +194,8 @@ impl VentService {
 
     /// Close the vent by sending a command to the BLE device
     pub async fn close_vent(&self) -> Result<(), AppError> {
-        let peripheral = {
-            let device = self.connected_device.lock().await;
+        let device_id = {
+            let device = self.connected_device_id.lock().await;
             device.as_ref().ok_or(AppError::NotConnected)?.clone()
         };
 
@@ -205,7 +203,7 @@ impl VentService {
         // Device will receive this and update its state
         // Status notifications will come back via the subscribed characteristic
         self.ble_service
-            .write_characteristic(&peripheral, STATUS_UUID, &[VENT_CMD_CLOSE])
+            .write_characteristic(&device_id, self.status_uuid, &[VENT_CMD_CLOSE])
             .await?;
 
         Ok(())
@@ -224,17 +222,14 @@ impl VentService {
 
     /// Disconnect from the device
     pub async fn disconnect(&self) -> Result<(), AppError> {
-        let peripheral_opt = self.connected_device.lock().await.take();
+        let device_id_opt = self.connected_device_id.lock().await.take();
 
-        if let Some(peripheral) = peripheral_opt {
-            self.ble_service.disconnect_device(&peripheral).await?;
+        if let Some(device_id) = device_id_opt {
+            self.ble_service.disconnect_device(&device_id).await?;
         }
 
         // Also stop scanning if it's still active
-        let adapter_opt = self.scanning_adapter.lock().await.take();
-        if let Some(adapter) = adapter_opt {
-            let _ = self.ble_service.stop_scan(&adapter).await;
-        }
+        let _ = self.ble_service.stop_scan().await;
 
         *self.vent_status.write().await = VentStatus::Disconnected;
 
@@ -243,9 +238,7 @@ impl VentService {
 
     /// Stop scanning (can be called manually to clean up resources)
     pub async fn stop_scanning(&self) -> Result<(), AppError> {
-        if let Some(adapter) = self.scanning_adapter.lock().await.take() {
-            self.ble_service.stop_scan(&adapter).await?;
-        }
+        self.ble_service.stop_scan().await?;
         Ok(())
     }
 
@@ -253,11 +246,11 @@ impl VentService {
     #[allow(dead_code)]
     async fn read_device_status_from_characteristic(
         &self,
-        peripheral: &Peripheral,
+        device_id: &str,
     ) -> Result<u8, AppError> {
         let data = self
             .ble_service
-            .read_characteristic(peripheral, STATUS_UUID)
+            .read_characteristic(device_id, self.status_uuid)
             .await?;
 
         // Device responds with a single byte: 0x01 = open, 0x02 = closed
