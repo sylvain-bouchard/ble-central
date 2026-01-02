@@ -254,7 +254,7 @@ impl<B: BleBackend + 'static> VentService<B> {
         // Device responds with a single byte: 0x01 = open, 0x02 = closed
         if data.is_empty() {
             return Err(AppError::Ble(btleplug::Error::Other(Box::new(
-                std::io::Error::new(std::io::ErrorKind::Other, "Device returned empty response"),
+                std::io::Error::other("Device returned empty response"),
             ))));
         }
 
