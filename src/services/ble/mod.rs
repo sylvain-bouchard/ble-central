@@ -9,4 +9,3 @@ pub mod ble_service_tests;
 
 pub use ble_backend::{BleBackend, CharacteristicNotification, DeviceInfo, ManufacturerData};
 pub use ble_service::{BleDataObserver, BleService};
-pub use btleplug_backend::BtleplugBackend;

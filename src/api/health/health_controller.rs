@@ -2,7 +2,8 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-use super::super::DefaultApplicationState;
+use crate::services::ble::BleBackend;
+use crate::state::ApplicationState;
 
 /// Health check response
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,7 +30,7 @@ pub fn init_start_time() {
 }
 
 /// Health check endpoint - returns system status and service health
-pub async fn health_check(state: &DefaultApplicationState) -> Json<HealthResponse> {
+pub async fn health_check<B: BleBackend>(state: &ApplicationState<B>) -> Json<HealthResponse> {
     let start_time = START_TIME.get().copied().unwrap_or_else(SystemTime::now);
     let uptime_seconds = SystemTime::now()
         .duration_since(start_time)

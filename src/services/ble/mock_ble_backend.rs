@@ -7,6 +7,7 @@ use super::ble_backend::{
 };
 use super::error::BleError;
 
+#[derive(Debug, Clone, Default)]
 pub struct MockBleBackend;
 
 #[async_trait]

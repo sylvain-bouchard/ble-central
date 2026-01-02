@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{debug, info};
 
-use super::super::DefaultApplicationState;
 use crate::error::AppError;
+use crate::services::ble::BleBackend;
+use crate::state::ApplicationState;
 
 #[derive(Debug, Deserialize)]
 pub struct PublishRequest {
@@ -32,7 +33,7 @@ pub struct MqttStatusResponse {
 }
 
 /// Get MQTT connection status
-pub async fn get_status(state: DefaultApplicationState) -> impl IntoResponse {
+pub async fn get_status<B: BleBackend>(state: ApplicationState<B>) -> impl IntoResponse {
     info!("MQTT status requested");
 
     let is_connected = state.mqtt_service.is_connected().await;
@@ -51,8 +52,8 @@ pub async fn get_status(state: DefaultApplicationState) -> impl IntoResponse {
 }
 
 /// Manually publish a message to MQTT broker
-pub async fn publish_message(
-    state: DefaultApplicationState,
+pub async fn publish_message<B: BleBackend>(
+    state: ApplicationState<B>,
     Json(request): Json<PublishRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Publishing message to MQTT topic: {}", request.topic);
@@ -90,8 +91,8 @@ pub async fn publish_message(
 }
 
 /// Publish JSON data to MQTT broker
-pub async fn publish_json(
-    state: DefaultApplicationState,
+pub async fn publish_json<B: BleBackend>(
+    state: ApplicationState<B>,
     Json(request): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, AppError> {
     // Extract topic and qos from the JSON request
