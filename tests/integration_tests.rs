@@ -22,7 +22,7 @@ mod test_helpers {
     /// Create a test application state for integration testing
     pub async fn create_test_state() -> ApplicationState<MockBleBackend> {
         // Use minimal configuration for testing
-        let backend = Arc::new(MockBleBackend::default());
+        let backend = Arc::new(MockBleBackend);
         let ble_service = BleService::new(backend, 5);
 
         let vent_service = Arc::new(VentService::new(ble_service, 10));

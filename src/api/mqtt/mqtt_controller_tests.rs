@@ -33,7 +33,6 @@ async fn create_test_state() -> ApplicationState<MockBleBackend> {
 async fn test_get_status() {
     // This test is covered by integration tests in tests/integration_tests.rs
     // Skipping unit test due to generic state type complexity
-    assert!(true);
 }
 
 #[tokio::test]

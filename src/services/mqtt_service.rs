@@ -59,24 +59,20 @@ impl MqttService {
             loop {
                 match eventloop.poll().await {
                     Ok(event) => {
-                        // Update connection status based on events
-                        match event {
-                            Event::Incoming(Packet::ConnAck(_)) => {
-                                *connected_clone.write().await = true;
-                                info!("MQTT client connected");
+                        if let Event::Incoming(Packet::ConnAck(_)) = event {
+                            *connected_clone.write().await = true;
+                            info!("MQTT client connected");
 
-                                // Clear error state on successful connection
-                                if last_error.is_some() && consecutive_count > 0 {
-                                    info!(
-                                        "MQTT connection recovered after {} errors",
-                                        consecutive_count + 1
-                                    );
-                                }
-                                last_error = None;
-                                consecutive_count = 0;
-                                suppressed = false;
+                            // Clear error state on successful connection
+                            if last_error.is_some() && consecutive_count > 0 {
+                                info!(
+                                    "MQTT connection recovered after {} errors",
+                                    consecutive_count + 1
+                                );
                             }
-                            _ => {}
+                            last_error = None;
+                            consecutive_count = 0;
+                            suppressed = false;
                         }
                     }
                     Err(e) => {

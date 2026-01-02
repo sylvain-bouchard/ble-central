@@ -18,7 +18,7 @@ async fn test_vent_service_creation() {
     // Verify initial status is Disconnected
     let status = service.get_vent_status().await;
     match status {
-        VentStatus::Disconnected => assert!(true),
+        VentStatus::Disconnected => {}
         _ => panic!("Initial status should be Disconnected"),
     }
 }
@@ -115,7 +115,7 @@ async fn test_open_vent_without_connection_fails() {
     let result = service.open_vent().await;
 
     match result {
-        Err(AppError::NotConnected) => assert!(true),
+        Err(AppError::NotConnected) => {}
         _ => panic!("Should return NotConnected error when not connected"),
     }
 }
@@ -127,7 +127,7 @@ async fn test_close_vent_without_connection_fails() {
     let result = service.close_vent().await;
 
     match result {
-        Err(AppError::NotConnected) => assert!(true),
+        Err(AppError::NotConnected) => {}
         _ => panic!("Should return NotConnected error when not connected"),
     }
 }

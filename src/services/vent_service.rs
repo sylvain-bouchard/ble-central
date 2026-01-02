@@ -1,4 +1,4 @@
-use crate::domain::vent::vent::VentStatus;
+use crate::domain::vent::VentStatus;
 use crate::error::AppError;
 use crate::services::ble::{BleBackend, BleDataObserver, BleService};
 use serde::{Deserialize, Serialize};
@@ -151,16 +151,14 @@ impl<B: BleBackend + 'static> VentService<B> {
             {
                 while let Some(notification) = notifications.recv().await {
                     // Check if this notification is from the status characteristic
-                    if notification.uuid == status_uuid {
-                        if !notification.value.is_empty() {
-                            let status_byte = notification.value[0];
-                            let new_status = match status_byte {
-                                VENT_CMD_OPEN => VentStatus::Open,
-                                VENT_CMD_CLOSE => VentStatus::Closed,
-                                _ => VentStatus::Disconnected,
-                            };
-                            *vent_status_clone.write().await = new_status;
-                        }
+                    if notification.uuid == status_uuid && !notification.value.is_empty() {
+                        let status_byte = notification.value[0];
+                        let new_status = match status_byte {
+                            VENT_CMD_OPEN => VentStatus::Open,
+                            VENT_CMD_CLOSE => VentStatus::Closed,
+                            _ => VentStatus::Disconnected,
+                        };
+                        *vent_status_clone.write().await = new_status;
                     }
                 }
             }

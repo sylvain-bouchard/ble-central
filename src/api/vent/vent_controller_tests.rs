@@ -56,5 +56,4 @@ async fn test_controller_creation() {
     // With free functions, there's no controller to create
     // This test now just verifies the module is accessible
     let _state = create_test_app_state().await;
-    assert!(true);
 }
