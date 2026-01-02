@@ -34,7 +34,9 @@ impl MqttServiceConfig {
 #[derive(Clone)]
 pub struct MqttService {
     client: AsyncClient,
+    #[allow(dead_code)]
     topic: String,
+    #[allow(dead_code)]
     manufacturer_id: u16,
     connected: Arc<RwLock<bool>>,
 }

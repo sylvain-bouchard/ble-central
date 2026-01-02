@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SensorReadings {
     pub co2: i16,

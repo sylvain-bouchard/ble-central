@@ -20,12 +20,14 @@ fn default_qos() -> u8 {
     0
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct PublishResponse {
     pub status: String,
     pub message: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct MqttStatusResponse {
     pub status: String,
