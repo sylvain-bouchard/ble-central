@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -11,7 +10,6 @@ use super::error::BleError;
 #[derive(Debug, Clone, Default)]
 pub struct MockBleBackend;
 
-#[async_trait]
 impl BleBackend for MockBleBackend {
     async fn list_adapters(&self) -> Result<Vec<AdapterInfo>, BleError> {
         Ok(vec![])

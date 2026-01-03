@@ -1,4 +1,5 @@
-use async_trait::async_trait;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -8,10 +9,14 @@ use tokio::sync::RwLock;
 use super::error::BleError;
 use super::{BleBackend, CharacteristicNotification, DeviceInfo, ManufacturerData};
 
-#[async_trait]
 pub trait BleDataObserver: Send + Sync {
     #[allow(dead_code)]
-    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Arc<[u8]>);
+    fn on_sensor_data(
+        &self,
+        id: String,
+        manufacturer_id: u16,
+        data: Arc<[u8]>,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
 }
 
 pub struct BleService<B: BleBackend> {

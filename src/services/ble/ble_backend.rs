@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -35,30 +34,46 @@ pub struct CharacteristicNotification {
     pub value: Vec<u8>,
 }
 
-#[async_trait]
 pub trait BleBackend: Send + Sync + 'static {
-    async fn list_adapters(&self) -> Result<Vec<AdapterInfo>, BleError>;
-    async fn start_scan(
+    fn list_adapters(
         &self,
-    ) -> Result<(mpsc::Receiver<DeviceInfo>, mpsc::Receiver<ManufacturerData>), BleError>;
-    async fn stop_scan(&self) -> Result<(), BleError>;
+    ) -> impl std::future::Future<Output = Result<Vec<AdapterInfo>, BleError>> + Send;
+    fn start_scan(
+        &self,
+    ) -> impl std::future::Future<
+        Output = Result<(mpsc::Receiver<DeviceInfo>, mpsc::Receiver<ManufacturerData>), BleError>,
+    > + Send;
+    fn stop_scan(&self) -> impl std::future::Future<Output = Result<(), BleError>> + Send;
 
-    async fn connect(&self, device_id: &str, timeout_secs: u64) -> Result<(), BleError>;
-    async fn disconnect(&self, device_id: &str) -> Result<(), BleError>;
-    async fn read_characteristic(&self, device_id: &str, uuid: Uuid) -> Result<Vec<u8>, BleError>;
-    async fn write_characteristic(
+    fn connect(
+        &self,
+        device_id: &str,
+        timeout_secs: u64,
+    ) -> impl std::future::Future<Output = Result<(), BleError>> + Send;
+    fn disconnect(
+        &self,
+        device_id: &str,
+    ) -> impl std::future::Future<Output = Result<(), BleError>> + Send;
+    fn read_characteristic(
+        &self,
+        device_id: &str,
+        uuid: Uuid,
+    ) -> impl std::future::Future<Output = Result<Vec<u8>, BleError>> + Send;
+    fn write_characteristic(
         &self,
         device_id: &str,
         uuid: Uuid,
         data: &[u8],
-    ) -> Result<(), BleError>;
-    async fn subscribe_to_characteristic(
+    ) -> impl std::future::Future<Output = Result<(), BleError>> + Send;
+    fn subscribe_to_characteristic(
         &self,
         device_id: &str,
         uuid: Uuid,
-    ) -> Result<(), BleError>;
-    async fn get_notifications(
+    ) -> impl std::future::Future<Output = Result<(), BleError>> + Send;
+    fn get_notifications(
         &self,
         device_id: &str,
-    ) -> Result<mpsc::Receiver<CharacteristicNotification>, BleError>;
+    ) -> impl std::future::Future<
+        Output = Result<mpsc::Receiver<CharacteristicNotification>, BleError>,
+    > + Send;
 }

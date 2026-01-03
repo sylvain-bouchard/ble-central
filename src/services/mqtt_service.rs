@@ -1,4 +1,6 @@
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -177,43 +179,51 @@ impl MqttService {
     }
 }
 
-#[async_trait::async_trait]
 impl BleDataObserver for MqttService {
-    async fn on_sensor_data(&self, id: String, manufacturer_id: u16, data: Arc<[u8]>) {
-        // Only process the configured manufacturer ID
-        if manufacturer_id != self.manufacturer_id {
-            return;
-        }
+    fn on_sensor_data(
+        &self,
+        id: String,
+        manufacturer_id: u16,
+        data: Arc<[u8]>,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        let topic = self.topic.clone();
+        let service = self;
+        Box::pin(async move {
+            // Only process the configured manufacturer ID
+            if manufacturer_id != service.manufacturer_id {
+                return;
+            }
 
-        info!(
-            "Received sensor data from {} (mfg_id: 0x{:04X}): {} bytes",
-            id,
-            manufacturer_id,
-            data.len()
-        );
+            info!(
+                "Received sensor data from {} (mfg_id: 0x{:04X}): {} bytes",
+                id,
+                manufacturer_id,
+                data.len()
+            );
 
-        // Parse the sensor data into SensorReadings
-        match SensorReadings::from_manufacturer_data(&data) {
-            Some(readings) => {
-                let payload = readings.to_json();
+            // Parse the sensor data into SensorReadings
+            match SensorReadings::from_manufacturer_data(&data) {
+                Some(readings) => {
+                    let payload = readings.to_json();
 
-                if let Err(error) = self
-                    .send_message(&self.topic, payload.as_bytes(), QoS::AtLeastOnce)
-                    .await
-                {
-                    error!("Failed to publish sensor data to MQTT: {:?}", error);
-                } else {
-                    info!("Published sensor data from {} to {}", id, self.topic);
+                    if let Err(error) = service
+                        .send_message(&topic, payload.as_bytes(), QoS::AtLeastOnce)
+                        .await
+                    {
+                        error!("Failed to publish sensor data to MQTT: {:?}", error);
+                    } else {
+                        info!("Published sensor data from {} to {}", id, topic);
+                    }
+                }
+                None => {
+                    error!(
+                        "Failed to parse sensor data from device {}: {} bytes",
+                        id,
+                        data.len()
+                    );
                 }
             }
-            None => {
-                error!(
-                    "Failed to parse sensor data from device {}: {} bytes",
-                    id,
-                    data.len()
-                );
-            }
-        }
+        })
     }
 }
 

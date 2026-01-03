@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
 use btleplug::platform::{Adapter, Manager, Peripheral, PeripheralId};
 use futures::stream::StreamExt;
@@ -72,7 +71,6 @@ impl BtleplugBackend {
     }
 }
 
-#[async_trait]
 impl BleBackend for BtleplugBackend {
     async fn list_adapters(&self) -> Result<Vec<AdapterInfo>, BleError> {
         let mut adapter_infos = Vec::new();
